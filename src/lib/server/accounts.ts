@@ -4,7 +4,7 @@ import { db } from "./supabase";
 import { fetchAll } from "./fetch-all";
 import { hashPin } from "./pin-hash";
 import { destroyAllSessions } from "./session";
-import { pinProblem } from "@/lib/pin-rules";
+import { ALLOWED_EASY_PIN, pinProblem } from "@/lib/pin-rules";
 
 /** Wrong PINs in a row before the account locks (15 min, then doubling, max 24 h). */
 export const MAX_TRIES = 5;
@@ -192,7 +192,7 @@ export async function resetPin(accountId: string): Promise<string | null> {
   let pin = "";
   do {
     pin = String(randomInt(0, 10000)).padStart(4, "0");
-  } while (pinProblem(pin, acc.phone));
+  } while (pin === ALLOWED_EASY_PIN || pinProblem(pin, acc.phone));
   await setPin(accountId, pin);
   await destroyAllSessions(accountId);
   return pin;

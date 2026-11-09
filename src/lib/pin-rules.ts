@@ -1,5 +1,8 @@
 export const PIN_LENGTH = 4;
 
+/** Allowed on purpose (the shop owner's choice), even though it's easy. */
+export const ALLOWED_EASY_PIN = "0000";
+
 // Among the most-used 4-digit PINs, beyond the patterns caught below.
 const COMMON = new Set(["1212", "2580", "1004", "2000", "2001", "6969", "1122", "1313", "1010", "0852"]);
 
@@ -9,6 +12,7 @@ const COMMON = new Set(["1212", "2580", "1004", "2000", "2001", "6969", "1122", 
  */
 export function pinProblem(pin: string, phone?: string): string | null {
   if (!/^\d{4}$/.test(pin)) return "4 оронтой тоо оруулна уу";
+  if (pin === ALLOWED_EASY_PIN) return null;
   const easy = "Амархан PIN байна. Өөр PIN сонгоно уу";
   if (/^(\d)\1{3}$/.test(pin)) return easy;
   const d = [...pin].map(Number);
