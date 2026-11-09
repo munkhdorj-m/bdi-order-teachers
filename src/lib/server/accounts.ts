@@ -118,10 +118,12 @@ export type AdminAccount = {
   orders: number;
   total: number;
   unpaid: number;
+  /** Every order, cancelled ones included (what a delete would remove). */
+  allOrders: number;
 };
 
 export async function listAccounts(): Promise<AdminAccount[]> {
-  type Row = Omit<AdminAccount, "locked" | "orders" | "total" | "unpaid"> & { locked_until: string | null };
+  type Row = Omit<AdminAccount, "locked" | "orders" | "total" | "unpaid" | "allOrders"> & { locked_until: string | null };
   const [accounts, orders] = await Promise.all([
     fetchAll<Row>(() =>
       db()
@@ -131,23 +133,52 @@ export async function listAccounts(): Promise<AdminAccount[]> {
         .order("id"),
     ),
     fetchAll<{ account_id: string; status: string; total: number | string }>(() =>
-      db().from("teacher_orders").select("account_id, status, total").neq("status", "cancelled").order("id"),
+      db().from("teacher_orders").select("account_id, status, total").order("id"),
     ),
   ]);
-  const sums = new Map<string, { orders: number; total: number; unpaid: number }>();
+  const sums = new Map<string, { orders: number; total: number; unpaid: number; allOrders: number }>();
   for (const o of orders) {
-    const s = sums.get(o.account_id) ?? { orders: 0, total: 0, unpaid: 0 };
-    s.orders++;
-    s.total += Number(o.total);
-    if (o.status === "new") s.unpaid += Number(o.total);
+    const s = sums.get(o.account_id) ?? { orders: 0, total: 0, unpaid: 0, allOrders: 0 };
+    s.allOrders++;
+    if (o.status !== "cancelled") {
+      s.orders++;
+      s.total += Number(o.total);
+      if (o.status === "new") s.unpaid += Number(o.total);
+    }
     sums.set(o.account_id, s);
   }
   const now = Date.now();
   return accounts.map(({ locked_until, ...a }) => ({
     ...a,
     locked: !!locked_until && new Date(locked_until).getTime() > now,
-    ...(sums.get(a.id) ?? { orders: 0, total: 0, unpaid: 0 }),
+    ...(sums.get(a.id) ?? { orders: 0, total: 0, unpaid: 0, allOrders: 0 }),
   }));
+}
+
+/**
+ * Delete an account with everything it owns: its orders (their lines go
+ * with them) and its sign-ins. It is blocked first, which signs it out and
+ * makes teacher_place_order refuse it, so no new order can land in between.
+ */
+export async function deleteAccount(
+  accountId: string,
+): Promise<{ ok: true; orders: number } | { ok: false; error: string }> {
+  const GENERIC = "Алдаа гарлаа. Дахин оролдоно уу";
+  if (!(await findById(accountId))) return { ok: false, error: "Олдсонгүй" };
+  if (!(await setActive(accountId, false))) return { ok: false, error: GENERIC };
+
+  let removed = 0;
+  // Twice at most: an order already half-way through when the block hit
+  // can still commit, and then the account delete must try again.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const orders = await db().from("teacher_orders").delete().eq("account_id", accountId).select("id");
+    if (orders.error) return { ok: false, error: GENERIC };
+    removed += orders.data?.length ?? 0;
+    const del = await db().from("teacher_accounts").delete().eq("id", accountId).select("id");
+    if (!del.error) return del.data?.length ? { ok: true, orders: removed } : { ok: false, error: "Олдсонгүй" };
+    if (del.error.code !== "23503") return { ok: false, error: GENERIC };
+  }
+  return { ok: false, error: GENERIC };
 }
 
 /**

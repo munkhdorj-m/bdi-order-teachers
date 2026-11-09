@@ -22,3 +22,12 @@ export function formatDateTime(iso: string): string {
   const p = Object.fromEntries(DATE_PARTS.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
   return `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}`;
 }
+
+/**
+ * The given name. Mongolians write the father's name (овог) first and the
+ * given name (нэр) last: "Мөнхбаатар Мөнхдорж" → "Мөнхдорж".
+ */
+export function givenName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts[parts.length - 1] || fullName.trim();
+}

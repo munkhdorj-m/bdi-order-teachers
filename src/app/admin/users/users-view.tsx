@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Ban, KeyRound, LockOpen, Phone, Search, Users } from "lucide-react";
+import { Ban, KeyRound, LockOpen, Phone, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/page-header";
 import { Avatar } from "@/components/shop-header";
@@ -14,7 +14,7 @@ import { formatDateTime, formatMnt, formatPhone } from "@/lib/format";
 import type { AdminAccount } from "@/lib/server/accounts";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
-import { resetPinAction, setActiveAction } from "../actions";
+import { deleteAccountAction, resetPinAction, setActiveAction } from "../actions";
 
 export function UsersView({ accounts, meId }: { accounts: AdminAccount[]; meId: string }) {
   const [query, setQuery] = useState("");
@@ -110,6 +110,31 @@ export function UsersView({ accounts, meId }: { accounts: AdminAccount[]; meId: 
                   >
                     {a.active ? <Ban /> : <LockOpen />}
                     {a.active ? "Хаах" : "Нээх"}
+                  </ConfirmButton>
+                  {/* Deletes the person and all their orders. «Хаах» keeps the orders. */}
+                  <ConfirmButton
+                    question={
+                      <>
+                        {a.full_name}-г устгах уу?
+                        <span className="mt-1 block text-[13px] font-medium text-ink-3">
+                          {a.allOrders > 0 ? `${a.allOrders} захиалга нь хамт устна. ` : ""}Буцаах боломжгүй
+                        </span>
+                      </>
+                    }
+                    confirmLabel="Устгах"
+                    danger
+                    size="sm"
+                    variant="ghost"
+                    className="text-danger hover:bg-danger-soft hover:text-danger"
+                    onConfirm={async () => {
+                      const res = await deleteAccountAction(a.id);
+                      if (res.ok) toast.success(res.orders > 0 ? `Устгалаа (${res.orders} захиалга)` : "Устгалаа");
+                      else toast.error(res.error);
+                      router.refresh();
+                    }}
+                  >
+                    <Trash2 />
+                    Устгах
                   </ConfirmButton>
                 </div>
               )}

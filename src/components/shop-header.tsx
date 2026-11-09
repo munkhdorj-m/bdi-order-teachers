@@ -8,6 +8,7 @@ import { Logo } from "@/components/logo";
 import { CartBadge, TABS, useCartBadge } from "@/components/bottom-tabs";
 import { MenuButton, type MenuUser } from "@/components/menu-drawer";
 import { FOCUS_SEARCH_EVENT } from "@/lib/events";
+import { givenName } from "@/lib/format";
 import { loginHref } from "@/lib/next-path";
 import { cn } from "@/lib/utils";
 
@@ -101,7 +102,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
               )}
             >
               <Avatar name={name} />
-              <span className="max-w-36 truncate">{name.split(" ")[0]}</span>
+              <span className="max-w-36 truncate">{givenName(name)}</span>
             </Link>
           ) : (
             <Link

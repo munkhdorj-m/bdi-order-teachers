@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { resetPin, setActive } from "@/lib/server/accounts";
+import { deleteAccount, resetPin, setActive } from "@/lib/server/accounts";
 import { ADMIN_MOVES, moveOrder, type AdminMove } from "@/lib/server/orders";
 import { requireAdmin } from "@/lib/server/session";
 import { saveShopSettings } from "@/lib/server/settings";
+import { isUuid } from "@/lib/uuid";
 
 /** Every admin action checks requireAdmin() itself. */
 
@@ -34,6 +35,20 @@ export async function setActiveAction(accountId: string, active: boolean): Promi
   const ok = await setActive(String(accountId ?? ""), active === true);
   if (ok) revalidatePath("/admin/users");
   return { ok, error: ok ? undefined : "Алдаа гарлаа" };
+}
+
+export async function deleteAccountAction(
+  accountId: string,
+): Promise<{ ok: true; orders: number } | { ok: false; error: string }> {
+  const me = await requireAdmin();
+  if (accountId === me.id) return { ok: false, error: "Өөрийгөө устгах боломжгүй" };
+  if (!isUuid(accountId)) return { ok: false, error: "Олдсонгүй" };
+  const res = await deleteAccount(accountId);
+  if (res.ok) {
+    revalidatePath("/admin", "layout");
+    revalidatePath("/orders");
+  }
+  return res;
 }
 
 export type SaveState = { ok: boolean; message: string; at: number } | null;
