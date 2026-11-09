@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ChevronRight, Loader2, LogIn, ShoppingCart, Trash2 } from "lucide-react";
+import { flushSync } from "react-dom";
+import { Check, ChevronRight, Loader2, LogIn, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState, Notice, PageTitle } from "@/components/page-header";
 import { ProductImage } from "@/components/product-image";
@@ -11,6 +12,7 @@ import { useCartPriceSync } from "@/components/use-cart-price-sync";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
 import { cartCount, cartTotal, clearCart, setQty, useCart } from "@/lib/cart";
+import { BRAND_GRADIENT } from "@/lib/brand";
 import { useCheckoutId } from "@/lib/checkout-id";
 import { formatMnt } from "@/lib/format";
 import { loginHref } from "@/lib/next-path";
@@ -66,7 +68,27 @@ export function CartView({
   };
   const checkoutId = useCheckoutId();
   const [pending, start] = useTransition();
+  // Set once the order is in: the emptied cart must not flash «Сагс хоосон»
+  // while the order page opens.
+  const [placed, setPlaced] = useState(false);
   const router = useRouter();
+
+  if (placed) {
+    return (
+      <div className={WRAP}>
+        <div className="flex flex-col items-center py-20 text-center animate-in fade-in duration-300">
+          <span
+            className="grid size-16 place-items-center rounded-full text-white shadow-[0_14px_30px_-12px_rgb(9_132_91/0.75)]"
+            style={{ backgroundImage: BRAND_GRADIENT }}
+          >
+            <Check className="size-8" strokeWidth={3} />
+          </span>
+          <p className="mt-4 text-[18px] font-extrabold">Захиалга илгээгдлээ</p>
+          <Loader2 className="mt-3 size-5 animate-spin text-ink-3" />
+        </div>
+      </div>
+    );
+  }
 
   // The cart lives in this device's storage: wait for it before saying "empty".
   if (!mounted) {
@@ -107,6 +129,8 @@ export function CartView({
         router.refresh(); // fresh prices / stock for the cart
         return;
       }
+      // Show «sent» first, then empty the cart, then open the order.
+      flushSync(() => setPlaced(true));
       clearCart();
       saveNote("");
       router.replace(`/orders/${res.orderId}?new=1`);
