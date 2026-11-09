@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, ClipboardList, PackageOpen, Settings, Users } from "lucide-react";
+import { ChartColumn, ClipboardList, Package, PackageOpen, Settings, Users } from "lucide-react";
 import { BottomBar, type NavTab } from "@/components/bottom-tabs";
 import { cn } from "@/lib/utils";
 
 export const ADMIN_LINKS: NavTab[] = [
   { href: "/admin", label: "Захиалга", Icon: ClipboardList, match: (p) => p === "/admin" },
+  { href: "/admin/products", label: "Бараа", Icon: Package, match: (p) => p.startsWith("/admin/products") },
   { href: "/admin/analytics", label: "Аналитик", Icon: ChartColumn, match: (p) => p.startsWith("/admin/analytics") },
   { href: "/admin/bring", label: "Авчрах", Icon: PackageOpen, match: (p) => p.startsWith("/admin/bring") },
   { href: "/admin/users", label: "Хэрэглэгч", Icon: Users, match: (p) => p.startsWith("/admin/users") },
@@ -18,7 +19,7 @@ export const ADMIN_LINKS: NavTab[] = [
 export function AdminNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Админ" className="hidden items-center gap-1 md:flex">
+    <nav aria-label="Админ" className="no-scrollbar hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
       {ADMIN_LINKS.map(({ href, label, Icon, match }) => {
         const active = match(path);
         return (
@@ -40,7 +41,10 @@ export function AdminNav() {
   );
 }
 
-/** Phones: the same links along the bottom (the ☰ menu and ‹ lead back to the shop). */
+/**
+ * Phones: the links along the bottom, all but Тохиргоо (five fit; it is in
+ * the ☰ menu, which also leads back to the shop, as does ‹).
+ */
 export function AdminBottomNav() {
-  return <BottomBar tabs={ADMIN_LINKS} label="Админ цэс" />;
+  return <BottomBar tabs={ADMIN_LINKS.filter((l) => l.href !== "/admin/settings")} label="Админ цэс" />;
 }

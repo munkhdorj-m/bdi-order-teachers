@@ -58,5 +58,6 @@ Teachers open the address on their phone and tap **Утсандаа суулга
 - Forgotten PIN: Admin → Хэрэглэгч → **PIN шинэчлэх** shows a new PIN once.
 - Teacher orders are separate from BDI orders and don't change BDI stock. Sold-out (stock 0) products show «Дууссан».
 - Orders go «Төлөөгүй» → «Төлсөн». Older «Өгсөн» orders already show as «Төлсөн»; optionally run `sql/03-drop-handed-step.sql` to rewrite them.
+- Admin → «Бараа»: show or hide each product on the site, and set this shop's own name / price / description (BDI's products stay unchanged). Run `sql/04-product-settings.sql` once first.
 - Admin → «Аналитик»: sales, orders, top products / buyers / categories for 7, 30 or 90 days. «Авчрах» has a date range for each delivery batch.
 - No e-Barimt receipts in this version.
