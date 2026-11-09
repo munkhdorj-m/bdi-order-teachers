@@ -8,9 +8,9 @@ import { isUuid } from "@/lib/uuid";
 /**
  * Products, photos and categories come straight from BDI's tables, with the
  * admin's own settings on top (Админ → Бараа): hidden products are left
- * out, and the admin's name, price and description win.
+ * out, and the admin's name, price, description and «Байгаа / Дууссан» win.
  * Price = the admin's price, else the chosen price list (default «Захууд»),
- * else base_price. Sold out = stock <= 0, same as BDI.
+ * else base_price. Sold out = the admin's choice, else stock <= 0 as on BDI.
  */
 
 export type Product = {
@@ -31,6 +31,8 @@ export type ProductDetail = Product & {
   stock: number;
   category: Category | null;
   sku: string | null;
+  /** The admin set «Байгаа» / «Дууссан», so BDI's stock count doesn't apply. */
+  stockForced: boolean;
   /** Pieces in one pack / one box, when more than one. */
   packSize: number | null;
   boxCount: number | null;
@@ -74,6 +76,11 @@ function shopPrice(row: ProductRow, list: Map<string, number>, s: ProductSetting
   return validPrice(s?.price) ?? bdiPrice(row, list);
 }
 
+/** Sold out on this site: the admin's choice, else BDI's stock. */
+function soldOutOf(row: ProductRow, s: ProductSetting | undefined): boolean {
+  return s?.soldOut ?? (row.stock ?? 0) <= 0;
+}
+
 function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
   return {
     id: r.id,
@@ -83,7 +90,7 @@ function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
     image_url: r.image_url,
     category_id: r.category_id,
     price,
-    sold_out: (r.stock ?? 0) <= 0,
+    sold_out: soldOutOf(r, s),
   };
 }
 
@@ -166,6 +173,7 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
     stock: Number(row.stock ?? 0),
     category,
     sku: row.sku?.trim() || null,
+    stockForced: s?.soldOut != null,
     packSize: (row.pack_size ?? 0) > 1 ? Number(row.pack_size) : null,
     boxCount: (row.box_count ?? 0) > 1 ? Number(row.box_count) : null,
   };
@@ -180,7 +188,7 @@ export async function getOrderablePrices(): Promise<Record<string, number>> {
     const s = ps.map.get(r.id);
     if (s?.hidden) continue;
     const price = shopPrice(r, list, s);
-    if (price != null && (r.stock ?? 0) > 0) out[r.id] = price;
+    if (price != null && !soldOutOf(r, s)) out[r.id] = price;
   }
   return out;
 }
@@ -200,7 +208,7 @@ export async function getProductStates(ids: string[]): Promise<Map<string, { nam
     const s = ps.map.get(r.id);
     out.set(r.id, {
       name: s?.name || r.name,
-      orderable: r.active && !s?.hidden && (r.stock ?? 0) > 0 && shopPrice(r, list, s) != null,
+      orderable: r.active && !s?.hidden && !soldOutOf(r, s) && shopPrice(r, list, s) != null,
     });
   }
   return out;
@@ -221,10 +229,11 @@ export type AdminProduct = {
   /** What teachers see now. */
   name: string;
   price: number | null;
+  soldOut: boolean;
 };
 
 /** Every active BDI product, BDI's values beside the admin's. */
-export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]; ready: boolean }> {
+export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]; ready: boolean; soldOutReady: boolean }> {
   const settings = await getSettings();
   const [rows, cats, list, ps] = await Promise.all([
     fetchAll<ProductRow & { description: string | null }>(() =>
@@ -253,6 +262,7 @@ export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]
       setting: s ?? null,
       name: s?.name || r.name,
       price: shopPrice(r, list, s),
+      soldOut: soldOutOf(r, s),
     };
   });
   products.sort(
@@ -260,5 +270,5 @@ export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]
       (rank.get(a.category?.id ?? "") ?? 1e9) - (rank.get(b.category?.id ?? "") ?? 1e9) ||
       nameCollator.compare(a.name, b.name),
   );
-  return { products, ready: ps.ready };
+  return { products, ready: ps.ready, soldOutReady: ps.soldOutReady };
 }

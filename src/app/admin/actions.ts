@@ -56,20 +56,22 @@ export async function deleteAccountAction(
 
 type ProductResult = { ok: true } | { ok: false; error: string };
 
-const NO_SETTING: ProductSetting = { hidden: false, name: null, price: null, description: null };
+const NO_SETTING: ProductSetting = { hidden: false, name: null, price: null, description: null, soldOut: null };
 const SQL_FIRST = "Эхлээд sql/04-product-settings.sql-ийг ажиллуулна уу";
+const SQL_05_FIRST = "Эхлээд sql/05-product-sold-out.sql-ийг ажиллуулна уу";
 
-async function currentProductSetting(productId: string): Promise<ProductSetting | null> {
-  const { map, ready } = await getProductSettings();
-  return ready ? (map.get(productId) ?? NO_SETTING) : null;
-}
-
-async function saveProduct(productId: string, next: (cur: ProductSetting) => ProductSetting): Promise<ProductResult> {
+async function saveProduct(
+  productId: string,
+  next: (cur: ProductSetting) => ProductSetting,
+  needsSoldOut = false,
+): Promise<ProductResult> {
   if (!isUuid(productId)) return { ok: false, error: "Олдсонгүй" };
-  const cur = await currentProductSetting(productId);
-  if (!cur) return { ok: false, error: SQL_FIRST };
-  if (!(await saveProductSetting(productId, next(cur)))) return { ok: false, error: "Хадгалж чадсангүй" };
-  revalidatePath("/", "layout"); // the shop shows it (or not) right away
+  const { map, ready, soldOutReady } = await getProductSettings();
+  if (!ready) return { ok: false, error: SQL_FIRST };
+  if (needsSoldOut && !soldOutReady) return { ok: false, error: SQL_05_FIRST };
+  const cur = map.get(productId) ?? NO_SETTING;
+  if (!(await saveProductSetting(productId, next(cur), soldOutReady))) return { ok: false, error: "Хадгалж чадсангүй" };
+  revalidatePath("/", "layout"); // the shop shows it right away
   return { ok: true };
 }
 
@@ -94,13 +96,23 @@ export async function saveProductAction(
     if (!Number.isFinite(n) || n <= 0 || n >= 100_000_000) return { ok: false, error: "Үнэ буруу байна" };
     price = Math.round(n * 100) / 100;
   }
-  return saveProduct(String(productId ?? ""), (cur) => ({ hidden: cur.hidden, name, price, description }));
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name, price, description }));
 }
 
-/** Back to BDI's name, price and description (shown/hidden stays). */
+/** Back to BDI's name, price and description (shown/hidden and sold out stay). */
 export async function resetProductAction(productId: string): Promise<ProductResult> {
   await requireAdmin();
-  return saveProduct(String(productId ?? ""), (cur) => ({ ...NO_SETTING, hidden: cur.hidden }));
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name: null, price: null, description: null }));
+}
+
+export type StockMode = "auto" | "in" | "out";
+
+/** «Байгаа» / «Дууссан» on this site, or back to following BDI's stock. */
+export async function setProductStockAction(productId: string, mode: StockMode): Promise<ProductResult> {
+  await requireAdmin();
+  if (mode !== "auto" && mode !== "in" && mode !== "out") return { ok: false, error: "Алдаа гарлаа" };
+  const soldOut = mode === "auto" ? null : mode === "out";
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, soldOut }), true);
 }
 
 export type SaveState = { ok: boolean; message: string; at: number } | null;

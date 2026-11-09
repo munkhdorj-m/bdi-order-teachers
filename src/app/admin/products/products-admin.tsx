@@ -13,45 +13,78 @@ import { formatMnt } from "@/lib/format";
 import type { AdminProduct } from "@/lib/server/catalog";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
-import { resetProductAction, saveProductAction, setProductHiddenAction } from "../actions";
+import {
+  resetProductAction,
+  saveProductAction,
+  setProductHiddenAction,
+  setProductStockAction,
+  type StockMode,
+} from "../actions";
 
-type Filter = "all" | "shown" | "hidden" | "edited";
+type Filter = "all" | "shown" | "hidden" | "soldout" | "edited";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Бүгд" },
   { key: "shown", label: "Харагдаж буй" },
   { key: "hidden", label: "Нуусан" },
+  { key: "soldout", label: "Дууссан" },
   { key: "edited", label: "Өөрчилсөн" },
 ];
+
+const modeOf = (p: AdminProduct): StockMode =>
+  p.setting?.soldOut == null ? "auto" : p.setting.soldOut ? "out" : "in";
 
 const isEdited = (p: AdminProduct) =>
   !!p.setting && (!!p.setting.name || p.setting.price != null || !!p.setting.description);
 
 /**
  * Админ → Бараа: every BDI product. The switch shows it on the site or
- * hides it; the pencil sets this shop's own name, price and description
+ * hides it; the stock menu follows BDI's stock or says «Байгаа» /
+ * «Дууссан»; the pencil sets this shop's own name, price and description
  * (empty = BDI's). BDI's own product data is never changed.
  */
-export function ProductsAdmin({ products, ready }: { products: AdminProduct[]; ready: boolean }) {
+export function ProductsAdmin({
+  products,
+  ready,
+  soldOutReady,
+}: {
+  products: AdminProduct[];
+  ready: boolean;
+  soldOutReady: boolean;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<AdminProduct | null>(null);
-  // The switch flips at once; the server catches up.
+  // Switch and stock menu change at once; the server catches up.
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [modes, setModes] = useState<Record<string, StockMode>>({});
 
   const hidden = (p: AdminProduct) => flipped[p.id] ?? !!p.setting?.hidden;
+  const mode = (p: AdminProduct) => modes[p.id] ?? modeOf(p);
+  const soldOut = (p: AdminProduct) => {
+    const m = mode(p);
+    return m === "auto" ? p.stock <= 0 : m === "out";
+  };
   const counts: Record<Filter, number> = {
     all: products.length,
     shown: products.filter((p) => !hidden(p)).length,
     hidden: products.filter((p) => hidden(p)).length,
+    soldout: products.filter((p) => soldOut(p)).length,
     edited: products.filter(isEdited).length,
   };
 
   const q = searchNormalize(query);
   const shown = products.filter((p) => {
     const byFilter =
-      filter === "all" || (filter === "shown" ? !hidden(p) : filter === "hidden" ? hidden(p) : isEdited(p));
+      filter === "all" ||
+      (filter === "shown"
+        ? !hidden(p)
+        : filter === "hidden"
+          ? hidden(p)
+          : filter === "soldout"
+            ? soldOut(p)
+            : isEdited(p));
     return byFilter && (!q || searchNormalize(`${p.name} ${p.bdiName} ${p.brand ?? ""}`).includes(q));
   });
 
@@ -64,6 +97,21 @@ export function ProductsAdmin({ products, ready }: { products: AdminProduct[]; r
         const next = { ...m };
         delete next[p.id];
         return next;
+      });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function setStock(p: AdminProduct, next: StockMode) {
+    setModes((m) => ({ ...m, [p.id]: next }));
+    const res = await setProductStockAction(p.id, next);
+    if (!res.ok) {
+      toast.error(res.error);
+      setModes((m) => {
+        const rest = { ...m };
+        delete rest[p.id];
+        return rest;
       });
       return;
     }
@@ -119,7 +167,20 @@ export function ProductsAdmin({ products, ready }: { products: AdminProduct[]; r
                       <span className="line-through tabular-nums">{formatMnt(p.bdiPrice)}</span>
                     )}
                     {p.category && <span className="truncate">{p.category.name}</span>}
-                    {p.stock <= 0 && <Badge className="bg-danger-soft text-danger">Дууссан</Badge>}
+                    <select
+                      aria-label={`${p.name}: үлдэгдэл`}
+                      value={mode(p)}
+                      disabled={!ready || !soldOutReady}
+                      onChange={(e) => setStock(p, e.target.value as StockMode)}
+                      className={cn(
+                        "h-6 cursor-pointer rounded-full px-1.5 text-[11px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-default",
+                        soldOut(p) ? "bg-danger-soft text-danger" : "bg-primary-soft text-primary-ink",
+                      )}
+                    >
+                      <option value="auto">Үлдэгдлээр · {Math.max(0, p.stock)} ш</option>
+                      <option value="in">Байгаа</option>
+                      <option value="out">Дууссан</option>
+                    </select>
                     {isEdited(p) && <Badge className="bg-primary-soft text-primary-ink">Өөрчилсөн</Badge>}
                     {off && <Badge className="bg-muted-strong text-ink-2">Нуусан</Badge>}
                   </div>

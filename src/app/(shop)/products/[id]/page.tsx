@@ -21,7 +21,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   if (!p) notFound();
 
   const visual = categoryVisual(p.category);
-  const low = !p.sold_out && p.stock < 10;
+  const low = !p.sold_out && !p.stockForced && p.stock < 10;
   const stock = p.sold_out
     ? { label: "Дууссан", cls: "bg-danger-soft text-danger" }
     : low
