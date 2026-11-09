@@ -5,6 +5,7 @@ import { buttonClass } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { BRAND_GRADIENT } from "@/lib/brand";
+import { compactIban, formatIban } from "@/lib/iban";
 import { formatDateTime, formatMnt } from "@/lib/format";
 import type { Order } from "@/lib/server/orders";
 import type { ShopSettings } from "@/lib/server/settings";
@@ -201,9 +202,10 @@ function Dot({ tone }: { tone: Tone }) {
 }
 
 function PayCard({ order, settings, transferNote }: { order: Order; settings: ShopSettings; transferNote: string }) {
-  const rows = [
+  const rows: { label: string; value: string; copy?: string }[] = [
     { label: "Банк", value: settings.bank_name },
     { label: "Дансны дугаар", value: settings.account_number },
+    { label: "IBAN", value: formatIban(settings.iban), copy: compactIban(settings.iban) },
     { label: "Данс эзэмшигч", value: settings.account_name },
     { label: "Гүйлгээний утга", value: transferNote },
   ].filter((r) => r.value.trim());
@@ -224,7 +226,7 @@ function PayCard({ order, settings, transferNote }: { order: Order; settings: Sh
                 <dt className="text-[11.5px] font-semibold text-white/50">{r.label}</dt>
                 <dd className="mt-0.5 break-words text-[15.5px] font-bold tabular-nums">{r.value}</dd>
               </div>
-              <CopyButton value={r.value} dark />
+              <CopyButton value={r.copy ?? r.value} dark />
             </div>
           ))}
         </dl>

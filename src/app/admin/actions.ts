@@ -5,7 +5,8 @@ import { deleteAccount, resetPin, setActive } from "@/lib/server/accounts";
 import { ADMIN_MOVES, moveOrder, type AdminMove } from "@/lib/server/orders";
 import { getProductSettings, saveProductSetting, type ProductSetting } from "@/lib/server/product-settings";
 import { requireAdmin } from "@/lib/server/session";
-import { saveShopSettings } from "@/lib/server/settings";
+import { saveShopSettings, settingsIbanReady } from "@/lib/server/settings";
+import { compactIban, isValidIban } from "@/lib/iban";
 import { isUuid } from "@/lib/uuid";
 
 /** Every admin action checks requireAdmin() itself. */
@@ -120,9 +121,12 @@ export type SaveState = { ok: boolean; message: string; at: number } | null;
 export async function saveSettingsAction(_prev: SaveState, form: FormData): Promise<SaveState> {
   await requireAdmin();
   const text = (key: string, max: number) => String(form.get(key) ?? "").trim().slice(0, max);
+  const iban = compactIban(text("iban", 60));
+  if (iban && !isValidIban(iban)) return { ok: false, message: "IBAN буруу байна. Дахин шалгана уу", at: Date.now() };
   const ok = await saveShopSettings({
     bank_name: text("bank_name", 100),
     account_number: text("account_number", 60),
+    iban,
     account_name: text("account_name", 100),
     note: text("note", 500),
     price_list_id: text("price_list_id", 64) || null,
@@ -130,5 +134,8 @@ export async function saveSettingsAction(_prev: SaveState, form: FormData): Prom
     closed_message: text("closed_message", 200),
   });
   if (ok) revalidatePath("/", "layout");
+  if (ok && iban && !(await settingsIbanReady())) {
+    return { ok: false, message: "IBAN-аас бусдыг хадгаллаа. IBAN-д sql/06-settings-iban.sql-ийг ажиллуулна уу", at: Date.now() };
+  }
   return { ok, message: ok ? "Хадгаллаа" : "Хадгалж чадсангүй", at: Date.now() };
 }

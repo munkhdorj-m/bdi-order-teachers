@@ -4,10 +4,19 @@ import { useActionState, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { formatIban } from "@/lib/iban";
 import type { ShopSettings } from "@/lib/server/settings";
 import { saveSettingsAction, type SaveState } from "../actions";
 
-export function SettingsForm({ settings, lists }: { settings: ShopSettings; lists: { id: string; name: string }[] }) {
+export function SettingsForm({
+  settings,
+  lists,
+  ibanReady,
+}: {
+  settings: ShopSettings;
+  lists: { id: string; name: string }[];
+  ibanReady: boolean;
+}) {
   const [state, action, pending] = useActionState<SaveState, FormData>(saveSettingsAction, null);
 
   useEffect(() => {
@@ -76,6 +85,26 @@ export function SettingsForm({ settings, lists }: { settings: ShopSettings; list
               maxLength={60}
               defaultValue={settings.account_number}
             />
+          </div>
+          <div>
+            <label htmlFor="iban" className="label">
+              IBAN
+            </label>
+            <input
+              id="iban"
+              name="iban"
+              className="field uppercase tabular-nums tracking-wide"
+              maxLength={42}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              defaultValue={formatIban(settings.iban)}
+              placeholder="MN00 0000 0000 0000 0000"
+              disabled={!ibanReady}
+            />
+            {!ibanReady && (
+              <p className="mt-1.5 text-[12px] font-medium text-warn">Эхлээд sql/06-settings-iban.sql-ийг ажиллуулна уу</p>
+            )}
           </div>
           <div>
             <label htmlFor="account_name" className="label">

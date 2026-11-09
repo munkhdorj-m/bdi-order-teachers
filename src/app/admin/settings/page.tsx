@@ -1,9 +1,9 @@
 import { requireAdmin } from "@/lib/server/session";
-import { getSettings, listPriceLists } from "@/lib/server/settings";
+import { getSettings, listPriceLists, settingsIbanReady } from "@/lib/server/settings";
 import { SettingsForm } from "./settings-form";
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const [settings, lists] = await Promise.all([getSettings(), listPriceLists()]);
-  return <SettingsForm settings={settings} lists={lists} />;
+  const [settings, lists, ibanReady] = await Promise.all([getSettings(), listPriceLists(), settingsIbanReady()]);
+  return <SettingsForm settings={settings} lists={lists} ibanReady={ibanReady} />;
 }
