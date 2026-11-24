@@ -91,6 +91,7 @@ export function CartPanel() {
                   <div className="mt-1.5 flex items-center gap-2">
                     <Stepper
                       qty={it.qty}
+                      step={it.pack}
                       onChange={(n) => setQty(it, n)}
                       tone="outline"
                       size="sm"

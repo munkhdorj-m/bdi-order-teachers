@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { deleteAccount, resetPin, setActive } from "@/lib/server/accounts";
-import { ADMIN_MOVES, moveOrder, type AdminMove } from "@/lib/server/orders";
+import { ADMIN_MOVES, editOrderItems, moveOrder, type AdminMove } from "@/lib/server/orders";
 import { getProductSettings, saveProductSetting, type ProductSetting } from "@/lib/server/product-settings";
 import { requireAdmin } from "@/lib/server/session";
 import { saveShopSettings, settingsIbanReady } from "@/lib/server/settings";
@@ -20,6 +20,20 @@ export async function moveOrderAction(orderId: string, move: AdminMove): Promise
     revalidatePath("/admin/bring");
   }
   return ok;
+}
+
+/** Change an unpaid order's quantities (0 removes a line). */
+export async function editOrderAction(
+  orderId: string,
+  changes: { id: number; qty: number }[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const res = await editOrderItems(String(orderId ?? ""), Array.isArray(changes) ? changes : []);
+  if (res.ok) {
+    revalidatePath("/admin", "layout");
+    revalidatePath("/orders", "layout");
+  }
+  return res;
 }
 
 export async function resetPinAction(accountId: string): Promise<{ pin: string } | { error: string }> {
@@ -57,9 +71,10 @@ export async function deleteAccountAction(
 
 type ProductResult = { ok: true } | { ok: false; error: string };
 
-const NO_SETTING: ProductSetting = { hidden: false, name: null, price: null, description: null, soldOut: null };
+const NO_SETTING: ProductSetting = { hidden: false, name: null, price: null, description: null, soldOut: null, pack: null };
 const SQL_FIRST = "Эхлээд sql/04-product-settings.sql-ийг ажиллуулна уу";
 const SQL_05_FIRST = "Эхлээд sql/05-product-sold-out.sql-ийг ажиллуулна уу";
+const SQL_07_FIRST = "Багцад эхлээд sql/07-product-pack.sql-ийг ажиллуулна уу";
 
 async function saveProduct(
   productId: string,
@@ -67,11 +82,15 @@ async function saveProduct(
   needsSoldOut = false,
 ): Promise<ProductResult> {
   if (!isUuid(productId)) return { ok: false, error: "Олдсонгүй" };
-  const { map, ready, soldOutReady } = await getProductSettings();
+  const { map, ready, soldOutReady, packReady } = await getProductSettings();
   if (!ready) return { ok: false, error: SQL_FIRST };
   if (needsSoldOut && !soldOutReady) return { ok: false, error: SQL_05_FIRST };
   const cur = map.get(productId) ?? NO_SETTING;
-  if (!(await saveProductSetting(productId, next(cur), soldOutReady))) return { ok: false, error: "Хадгалж чадсангүй" };
+  const after = next(cur);
+  if (after.pack != null && after.pack !== cur.pack && !packReady) return { ok: false, error: SQL_07_FIRST };
+  if (!(await saveProductSetting(productId, after, { soldOut: soldOutReady, pack: packReady }))) {
+    return { ok: false, error: "Хадгалж чадсангүй" };
+  }
   revalidatePath("/", "layout"); // the shop shows it right away
   return { ok: true };
 }
@@ -82,10 +101,10 @@ export async function setProductHiddenAction(productId: string, hidden: boolean)
   return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, hidden: hidden === true }));
 }
 
-/** The admin's name / price / description; empty = BDI's own. */
+/** The admin's name / price / description / багц; empty = BDI's own (or by the piece). */
 export async function saveProductAction(
   productId: string,
-  input: { name?: string; price?: string; description?: string },
+  input: { name?: string; price?: string; description?: string; pack?: string },
 ): Promise<ProductResult> {
   await requireAdmin();
   const name = String(input?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 200) || null;
@@ -97,13 +116,17 @@ export async function saveProductAction(
     if (!Number.isFinite(n) || n <= 0 || n >= 100_000_000) return { ok: false, error: "Үнэ буруу байна" };
     price = Math.round(n * 100) / 100;
   }
-  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name, price, description }));
+  const rawPack = String(input?.pack ?? "").replace(/\D/g, "");
+  const packN = rawPack ? Number(rawPack) : 0;
+  if (packN === 1 || packN > 500) return { ok: false, error: "Багц 2-500 ширхэг байна" };
+  const pack = packN >= 2 ? packN : null;
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name, price, description, pack }));
 }
 
 /** Back to BDI's name, price and description (shown/hidden and sold out stay). */
 export async function resetProductAction(productId: string): Promise<ProductResult> {
   await requireAdmin();
-  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name: null, price: null, description: null }));
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name: null, price: null, description: null, pack: null }));
 }
 
 export type StockMode = "auto" | "in" | "out";

@@ -268,7 +268,9 @@ function ProductCard({
     category_name: category?.name ?? null,
     category_icon: category?.icon ?? null,
     unit_price: product.price,
+    pack: product.pack,
   };
+  const byPack = product.pack > 1;
 
   return (
     <div
@@ -309,8 +311,14 @@ function ProductCard({
           )}
           <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-semibold leading-[1.25]">{product.name}</h3>
           <div className="mt-auto flex items-baseline gap-1 pt-0.5">
-            <span className="text-[16px] font-extrabold tracking-tight tabular-nums">{formatMnt(product.price)}</span>
-            {product.unit && <span className="text-[11.5px] font-medium text-ink-3">/{product.unit}</span>}
+            <span className="text-[16px] font-extrabold tracking-tight tabular-nums">
+              {formatMnt(product.price * product.pack)}
+            </span>
+            {byPack ? (
+              <span className="text-[11.5px] font-medium text-ink-3">/багц · {product.pack}ш</span>
+            ) : (
+              product.unit && <span className="text-[11.5px] font-medium text-ink-3">/{product.unit}</span>
+            )}
           </div>
         </div>
       </Link>
@@ -320,11 +328,11 @@ function ProductCard({
             {product.sold_out ? "Дууссан" : "Хаалттай"}
           </div>
         ) : qty > 0 ? (
-          <Stepper qty={qty} onChange={(n) => setQty(line, n)} label={`${product.name}: тоо`} />
+          <Stepper qty={qty} step={product.pack} onChange={(n) => setQty(line, n)} label={`${product.name}: ${byPack ? "багц" : "тоо"}`} />
         ) : (
           <button
             type="button"
-            onClick={() => setQty(line, 1)}
+            onClick={() => setQty(line, product.pack)}
             aria-label={`${product.name}: сагсанд нэмэх`}
             className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-primary-soft text-[13.5px] font-bold text-primary-ink transition-colors hover:bg-primary hover:text-white active:scale-[0.98]"
           >

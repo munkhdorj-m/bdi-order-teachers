@@ -50,16 +50,18 @@ function saveNote(v: string) {
  */
 export function CartView({
   prices,
+  packs,
   closedMessage,
   signedIn,
 }: {
   prices: Record<string, number>;
+  packs: Record<string, number>;
   closedMessage: string | null;
   signedIn: boolean;
 }) {
   const items = useCart();
   const mounted = useMounted();
-  useCartPriceSync(prices);
+  useCartPriceSync(prices, packs);
   // Only shown once mounted, so reading the browser's storage here is safe.
   const [note, setNoteState] = useState(readNote);
   const setNote = (v: string) => {
@@ -197,11 +199,14 @@ export function CartView({
                   </button>
                 </div>
                 <div className="mt-0.5 text-[12.5px] font-medium text-ink-3 tabular-nums">
-                  {formatMnt(it.unit_price)} × {it.qty}
+                  {(it.pack ?? 1) > 1
+                    ? `${it.qty / (it.pack ?? 1)} багц × ${it.pack}ш · 1ш ${formatMnt(it.unit_price)}`
+                    : `${formatMnt(it.unit_price)} × ${it.qty}`}
                 </div>
                 <div className="mt-auto flex items-center gap-3 pt-2">
                   <Stepper
                     qty={it.qty}
+                    step={it.pack}
                     onChange={(n) => setQty(it, n)}
                     tone="outline"
                     size="sm"

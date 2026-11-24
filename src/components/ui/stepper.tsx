@@ -18,6 +18,7 @@ export function Stepper({
   size = "md",
   label = "Тоо ширхэг",
   keepOne = false,
+  step = 1,
   className,
 }: {
   qty: number;
@@ -27,23 +28,27 @@ export function Stepper({
   label?: string;
   /** Minus stops at 1 (the row has its own remove button). */
   keepOne?: boolean;
+  /** Багц size: the number shown and typed counts багцs, `qty` stays in pieces. */
+  step?: number;
   className?: string;
 }) {
+  const unit = step > 1 ? step : 1;
+  const shown = Math.round(qty / unit);
   // Typing draft, committed on blur / Enter; follows the cart otherwise.
-  const [draft, setDraft] = useState(String(qty));
-  const [prev, setPrev] = useState(qty);
-  if (prev !== qty) {
-    setPrev(qty);
-    setDraft(String(qty));
+  const [draft, setDraft] = useState(String(shown));
+  const [prev, setPrev] = useState(shown);
+  if (prev !== shown) {
+    setPrev(shown);
+    setDraft(String(shown));
   }
 
   function commit() {
     const t = draft.trim();
     const n = Number(t);
-    if (t === "" || !Number.isFinite(n) || n < 0) return setDraft(String(qty));
-    const next = Math.min(MAX_QTY, Math.floor(n));
-    if (next === qty) setDraft(String(qty));
-    else onChange(next);
+    if (t === "" || !Number.isFinite(n) || n < 0) return setDraft(String(shown));
+    const next = Math.min(Math.floor(MAX_QTY / unit), Math.floor(n));
+    if (next === shown) setDraft(String(shown));
+    else onChange(next * unit);
   }
 
   // Cards sit inside a link: keep taps on the controls from navigating.
@@ -72,15 +77,15 @@ export function Stepper({
     >
       <button
         type="button"
-        aria-label={qty <= 1 && !keepOne ? "Хасах" : "Багасгах"}
-        disabled={keepOne && qty <= 1}
+        aria-label={shown <= 1 && !keepOne ? "Хасах" : "Багасгах"}
+        disabled={keepOne && shown <= 1}
         onClick={(e) => {
           stop(e);
-          onChange(qty - 1);
+          onChange((shown - 1) * unit);
         }}
         className={btn}
       >
-        {qty <= 1 && !keepOne ? (
+        {shown <= 1 && !keepOne ? (
           <Trash2 className="size-4" strokeWidth={2.2} />
         ) : (
           <Minus className="size-4" strokeWidth={2.6} />
@@ -103,7 +108,7 @@ export function Stepper({
             e.preventDefault();
             e.currentTarget.blur();
           } else if (e.key === "Escape") {
-            setDraft(String(qty));
+            setDraft(String(shown));
             e.currentTarget.blur();
           }
         }}
@@ -116,10 +121,10 @@ export function Stepper({
       <button
         type="button"
         aria-label="Нэмэх"
-        disabled={qty >= MAX_QTY}
+        disabled={(shown + 1) * unit > MAX_QTY}
         onClick={(e) => {
           stop(e);
-          onChange(qty + 1);
+          onChange((shown + 1) * unit);
         }}
         className={btn}
       >

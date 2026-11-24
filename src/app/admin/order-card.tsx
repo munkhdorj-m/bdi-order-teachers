@@ -11,6 +11,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { formatDateTime, formatMnt, formatPhone } from "@/lib/format";
 import type { AdminMove, AdminOrder } from "@/lib/server/orders";
 import { moveOrderAction } from "./actions";
+import { EditOrderButton } from "./edit-order";
 
 /** One order: who, what, how much, and the next step's button. */
 export function AdminOrderCard({ order }: { order: AdminOrder }) {
@@ -64,6 +65,7 @@ export function AdminOrderCard({ order }: { order: AdminOrder }) {
       <div className="mt-auto px-4 pt-3 pb-4">
         <div className="flex min-h-9 items-center gap-2">
           <span className="mr-auto text-[18px] font-extrabold tracking-tight tabular-nums">{formatMnt(order.total)}</span>
+          {order.status === "new" && <EditOrderButton order={order} />}
           {order.status === "new" && (
             <ConfirmButton
               question={`${order.order_number} цуцлах уу?`}

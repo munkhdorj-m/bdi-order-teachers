@@ -20,8 +20,11 @@ export type Product = {
   unit: string | null;
   image_url: string | null;
   category_id: string | null;
+  /** Price of one piece. */
   price: number;
   sold_out: boolean;
+  /** Ordered in multiples of this many pieces (1 = by the piece). */
+  pack: number;
 };
 
 export type Category = { id: string; name: string; icon: string | null };
@@ -91,6 +94,7 @@ function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
     category_id: r.category_id,
     price,
     sold_out: soldOutOf(r, s),
+    pack: s?.pack ?? 1,
   };
 }
 
@@ -179,6 +183,23 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
   };
 }
 
+/** Price and багц size of everything that can be ordered right now. */
+export async function getOrderable(): Promise<{ prices: Record<string, number>; packs: Record<string, number> }> {
+  const settings = await getSettings();
+  const [rows, list, ps] = await Promise.all([activeProducts(), listPrices(settings.price_list_id), getProductSettings()]);
+  const prices: Record<string, number> = {};
+  const packs: Record<string, number> = {};
+  for (const r of rows) {
+    const s = ps.map.get(r.id);
+    if (s?.hidden) continue;
+    const price = shopPrice(r, list, s);
+    if (price == null || soldOutOf(r, s)) continue;
+    prices[r.id] = price;
+    packs[r.id] = s?.pack ?? 1;
+  }
+  return { prices, packs };
+}
+
 /** product_id → price, for everything that can be ordered right now. */
 export async function getOrderablePrices(): Promise<Record<string, number>> {
   const settings = await getSettings();
@@ -194,7 +215,9 @@ export async function getOrderablePrices(): Promise<Record<string, number>> {
 }
 
 /** Name and orderable state of some products (for clear error messages). */
-export async function getProductStates(ids: string[]): Promise<Map<string, { name: string; orderable: boolean }>> {
+export async function getProductStates(
+  ids: string[],
+): Promise<Map<string, { name: string; orderable: boolean; pack: number }>> {
   if (ids.length === 0) return new Map();
   const settings = await getSettings();
   const [res, list, ps] = await Promise.all([
@@ -203,12 +226,13 @@ export async function getProductStates(ids: string[]): Promise<Map<string, { nam
     getProductSettings(),
   ]);
   if (res.error) throw new Error(res.error.message);
-  const out = new Map<string, { name: string; orderable: boolean }>();
+  const out = new Map<string, { name: string; orderable: boolean; pack: number }>();
   for (const r of (res.data ?? []) as (ProductRow & { active: boolean })[]) {
     const s = ps.map.get(r.id);
     out.set(r.id, {
       name: s?.name || r.name,
       orderable: r.active && !s?.hidden && !soldOutOf(r, s) && shopPrice(r, list, s) != null,
+      pack: s?.pack ?? 1,
     });
   }
   return out;

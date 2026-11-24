@@ -16,6 +16,7 @@ import { isUuid } from "@/lib/uuid";
  */
 
 export type OrderItem = {
+  id: number;
   product_id: string | null;
   name: string;
   image_url: string | null;
@@ -42,7 +43,7 @@ const GENERIC = "Алдаа гарлаа. Дахин оролдоно уу";
 
 const ORDER_COLS =
   "id, order_number, status, total, note, created_at, paid_at, cancelled_at, " +
-  "items:teacher_order_items(product_id, name, image_url, qty, unit_price, line_total)";
+  "items:teacher_order_items(id, product_id, name, image_url, qty, unit_price, line_total)";
 
 type RawItem = Omit<OrderItem, "qty" | "unit_price" | "line_total"> & {
   qty: number | string;
@@ -129,6 +130,11 @@ export async function placeOrder(
     const names = blocked.map((i) => states.get(i.product_id)?.name).filter(Boolean);
     return { ok: false, error: names.length ? `Дууссан: ${names.join(", ")}` : "Зарим бараа дууссан байна" };
   }
+  const offPack = items.find((i) => i.qty % (states.get(i.product_id)?.pack ?? 1) !== 0);
+  if (offPack) {
+    const st = states.get(offPack.product_id)!;
+    return { ok: false, error: `«${st.name}» ${st.pack} ширхэгийн багцаар захиална` };
+  }
 
   const { data, error } = await db().rpc("teacher_place_order", {
     p_order_id: input.requestId.toLowerCase(),
@@ -195,6 +201,50 @@ export async function orderCounts(): Promise<Record<OrderStatus, number>> {
   const out: Record<OrderStatus, number> = { new: 0, paid: 0, cancelled: 0 };
   for (const r of rows) out[normalizeStatus(r.status)]++;
   return out;
+}
+
+/**
+ * The admin changes an unpaid order's lines before marking it paid:
+ * new quantities by line id, 0 removes the line. The total is worked out
+ * again from the lines. Paid or cancelled orders can't be changed.
+ */
+export async function editOrderItems(
+  orderId: string,
+  changes: { id: number; qty: number }[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isUuid(orderId)) return { ok: false, error: "Олдсонгүй" };
+  const order = await db().from("teacher_orders").select("status").eq("id", orderId).maybeSingle();
+  if (order.error || !order.data) return { ok: false, error: "Олдсонгүй" };
+  if (order.data.status !== "new") return { ok: false, error: "Зөвхөн төлөөгүй захиалгыг засна" };
+
+  const lines = await db().from("teacher_order_items").select("id, qty").eq("order_id", orderId);
+  if (lines.error) return { ok: false, error: GENERIC };
+  const want = new Map<number, number>();
+  for (const c of changes ?? []) {
+    const qty = Number(c?.qty);
+    if (!Number.isInteger(c?.id) || !Number.isInteger(qty) || qty < 0 || qty > 999) return { ok: false, error: GENERIC };
+    want.set(c.id, qty);
+  }
+  const rows = (lines.data ?? []) as { id: number; qty: number }[];
+  if (rows.every((r) => (want.get(r.id) ?? r.qty) === 0)) {
+    return { ok: false, error: "Бүх барааг хасах бол захиалгыг цуцална уу" };
+  }
+  for (const r of rows) {
+    const qty = want.get(r.id);
+    if (qty === undefined || qty === r.qty) continue;
+    const q =
+      qty === 0
+        ? db().from("teacher_order_items").delete().eq("id", r.id).eq("order_id", orderId)
+        : db().from("teacher_order_items").update({ qty }).eq("id", r.id).eq("order_id", orderId);
+    const { error } = await q;
+    if (error) return { ok: false, error: GENERIC };
+  }
+  const sum = await db().from("teacher_order_items").select("line_total").eq("order_id", orderId);
+  if (sum.error) return { ok: false, error: GENERIC };
+  const total = ((sum.data ?? []) as { line_total: number | string }[]).reduce((s, r) => s + Number(r.line_total), 0);
+  const upd = await db().from("teacher_orders").update({ total }).eq("id", orderId).eq("status", "new");
+  if (upd.error) return { ok: false, error: GENERIC };
+  return { ok: true };
 }
 
 export type AdminMove = "pay" | "unpay" | "cancel";

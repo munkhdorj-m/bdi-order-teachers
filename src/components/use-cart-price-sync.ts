@@ -9,11 +9,11 @@ import { syncCartPrices } from "@/lib/cart";
  * ordered any more (from BDI's use-cart-price-sync.ts), so the total
  * shown is the total the order will have.
  */
-export function useCartPriceSync(prices: Record<string, number>) {
+export function useCartPriceSync(prices: Record<string, number>, packs: Record<string, number> = {}) {
   useEffect(() => {
-    const { repriced, removed } = syncCartPrices(prices);
+    const { repriced, removed } = syncCartPrices(prices, packs);
     if (removed.length === 1) toast.warning(`«${removed[0]}» дууссан тул хасагдлаа`);
     else if (removed.length > 1) toast.warning(`${removed.length} бараа дууссан тул хасагдлаа`);
     if (repriced > 0) toast.info("Үнэ өөрчлөгдсөн, шинэ үнээр тооцлоо");
-  }, [prices]);
+  }, [prices, packs]);
 }

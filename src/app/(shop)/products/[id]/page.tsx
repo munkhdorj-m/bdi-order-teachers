@@ -71,8 +71,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <h1 className="mt-1 text-[22px] font-extrabold leading-tight md:text-[30px]">{p.name}</h1>
 
           <div className="mt-3 flex items-baseline gap-1.5">
-            <span className="text-[28px] font-extrabold tracking-tight tabular-nums md:text-[34px]">{formatMnt(p.price)}</span>
-            {p.unit && <span className="text-[14px] font-medium text-ink-3">/ {p.unit}</span>}
+            <span className="text-[28px] font-extrabold tracking-tight tabular-nums md:text-[34px]">
+              {formatMnt(p.price * p.pack)}
+            </span>
+            {p.pack > 1 ? (
+              <span className="text-[14px] font-medium text-ink-3">
+                / багц ({p.pack}ш) · 1ш {formatMnt(p.price)}
+              </span>
+            ) : (
+              p.unit && <span className="text-[14px] font-medium text-ink-3">/ {p.unit}</span>
+            )}
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
@@ -93,6 +101,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               category_name: p.category?.name ?? null,
               category_icon: p.category?.icon ?? null,
               unit_price: p.price,
+              pack: p.pack,
             }}
             soldOut={p.sold_out}
             closed={!settings.open}

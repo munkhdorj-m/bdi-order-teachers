@@ -15,7 +15,10 @@ export type CartItem = {
   category_name: string | null;
   category_icon: string | null;
   unit_price: number;
+  /** Pieces. Always a multiple of `pack` when the product is sold by the багц. */
   qty: number;
+  /** Багц size (missing / 1 = by the piece). */
+  pack?: number;
 };
 
 export const MAX_QTY = 999;
@@ -43,8 +46,15 @@ function write(items: CartItem[]) {
 }
 
 /** Set a product's quantity: adds it when new, removes it at 0. */
+/** Round to whole багцs (up), within the 999-piece limit. */
+function packed(qty: number, pack = 1): number {
+  const p = pack > 1 ? pack : 1;
+  const max = Math.floor(MAX_QTY / p) * p;
+  return Math.max(0, Math.min(max, Math.ceil(Math.floor(qty) / p) * p));
+}
+
 export function setQty(item: Omit<CartItem, "qty">, qty: number) {
-  const n = Math.max(0, Math.min(MAX_QTY, Math.floor(qty)));
+  const n = packed(qty, item.pack);
   const items = read();
   const i = items.findIndex((x) => x.product_id === item.product_id);
   if (n === 0) {
@@ -71,23 +81,28 @@ export function clearCart() {
  * Bring a saved cart in line with today's prices (product_id → price of
  * everything orderable now): re-price changed lines, drop the rest.
  */
-export function syncCartPrices(prices: Record<string, number>): { repriced: number; removed: string[] } {
+export function syncCartPrices(
+  prices: Record<string, number>,
+  packs: Record<string, number> = {},
+): { repriced: number; removed: string[] } {
   const items = read();
   let repriced = 0;
+  let repacked = false;
   const removed: string[] = [];
   const next: CartItem[] = [];
   for (const it of items) {
     const price = prices[it.product_id];
     if (price === undefined) {
       removed.push(it.name);
-    } else if (Number(price) !== Number(it.unit_price)) {
-      repriced++;
-      next.push({ ...it, unit_price: Number(price) });
-    } else {
-      next.push(it);
+      continue;
     }
+    const pack = packs[it.product_id] ?? it.pack ?? 1;
+    const qty = packed(it.qty, pack);
+    if ((it.pack ?? 1) !== pack || qty !== it.qty) repacked = true;
+    if (Number(price) !== Number(it.unit_price)) repriced++;
+    next.push({ ...it, unit_price: Number(price), pack, qty });
   }
-  if (repriced > 0 || removed.length > 0) write(next);
+  if (repriced > 0 || removed.length > 0 || repacked) write(next);
   return { repriced, removed };
 }
 

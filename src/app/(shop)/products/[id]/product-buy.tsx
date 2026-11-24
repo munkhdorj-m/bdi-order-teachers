@@ -28,13 +28,13 @@ export function ProductBuy({
     ) : !mounted ? (
       <div className="h-12 animate-pulse rounded-xl bg-muted" />
     ) : qty === 0 ? (
-      <Button variant="brand" size="lg" className="w-full" onClick={() => setQty(product, 1)}>
+      <Button variant="brand" size="lg" className="w-full" onClick={() => setQty(product, product.pack ?? 1)}>
         <Plus strokeWidth={2.6} />
         Сагсанд нэмэх
       </Button>
     ) : (
       <div className="flex gap-2">
-        <Stepper qty={qty} onChange={(n) => setQty(product, n)} size="lg" className="flex-1" label={`${product.name}: тоо`} />
+        <Stepper qty={qty} step={product.pack} onChange={(n) => setQty(product, n)} size="lg" className="flex-1" label={`${product.name}: тоо`} />
         <Link href="/cart" className={buttonClass("primary", "lg", "flex-1")}>
           Сагс
           <ChevronRight />

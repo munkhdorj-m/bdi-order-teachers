@@ -35,7 +35,7 @@ const modeOf = (p: AdminProduct): StockMode =>
   p.setting?.soldOut == null ? "auto" : p.setting.soldOut ? "out" : "in";
 
 const isEdited = (p: AdminProduct) =>
-  !!p.setting && (!!p.setting.name || p.setting.price != null || !!p.setting.description);
+  !!p.setting && (!!p.setting.name || p.setting.price != null || !!p.setting.description || p.setting.pack != null);
 
 /**
  * Админ → Бараа: every BDI product. The switch shows it on the site or
@@ -181,6 +181,7 @@ export function ProductsAdmin({
                       <option value="in">Байгаа</option>
                       <option value="out">Дууссан</option>
                     </select>
+                    {p.setting?.pack != null && <Badge className="bg-info-soft text-info">Багц {p.setting.pack}ш</Badge>}
                     {isEdited(p) && <Badge className="bg-primary-soft text-primary-ink">Өөрчилсөн</Badge>}
                     {off && <Badge className="bg-muted-strong text-ink-2">Нуусан</Badge>}
                   </div>
@@ -218,6 +219,7 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
   const [name, setName] = useState(p.setting?.name ?? "");
   const [price, setPrice] = useState(p.setting?.price != null ? String(p.setting.price) : "");
   const [description, setDescription] = useState(p.setting?.description ?? "");
+  const [pack, setPack] = useState(p.setting?.pack != null ? String(p.setting.pack) : "");
   const [pending, start] = useTransition();
 
   const run = (action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string) =>
@@ -252,8 +254,22 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
         <input id="p-name" className="field" value={name} maxLength={200} placeholder={p.bdiName} onChange={(e) => setName(e.target.value)} />
       </div>
       <div>
+        <label htmlFor="p-pack" className="label">
+          Багц (ширхэг)
+        </label>
+        <input
+          id="p-pack"
+          className="field tabular-nums"
+          inputMode="numeric"
+          value={pack}
+          placeholder="Ширхэгээр"
+          onChange={(e) => setPack(e.target.value.replace(/\D/g, "").slice(0, 3))}
+        />
+        <p className="mt-1 text-[12px] font-medium text-ink-3">Жишээ нь 10 бол багш нар 10, 20, 30… ширхэгээр захиална. Үнэ нь 1 ширхэгийнх.</p>
+      </div>
+      <div>
         <label htmlFor="p-price" className="label">
-          Үнэ (₮)
+          Үнэ, 1 ширхэг (₮)
         </label>
         <input
           id="p-price"
@@ -294,7 +310,7 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
           size="lg"
           className="min-w-40 flex-1"
           disabled={pending}
-          onClick={() => run(() => saveProductAction(p.id, { name, price, description }), "Хадгаллаа")}
+          onClick={() => run(() => saveProductAction(p.id, { name, price, description, pack }), "Хадгаллаа")}
         >
           {pending && <Loader2 className="animate-spin" />}
           Хадгалах
