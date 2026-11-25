@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Package } from "lucide-react";
 import { ProductImage } from "@/components/product-image";
 import { CategoryIconTile, categoryVisual } from "@/lib/category-visual";
 import { describe } from "@/lib/describe";
@@ -87,13 +87,23 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </span>
             )}
             {p.pack > 1 ? (
-              <span className="text-[14px] font-medium text-ink-3">
-                / багц ({p.pack}ш) · 1ш {formatMnt(p.price)}
-              </span>
+              <span className="text-[14px] font-semibold text-ink-3">/ багц ({p.pack}ш)</span>
             ) : (
               p.unit && <span className="text-[14px] font-medium text-ink-3">/ {p.unit}</span>
             )}
           </div>
+
+          {p.pack > 1 && (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-info-soft px-4 py-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-info text-white">
+                <Package className="size-5" />
+              </span>
+              <div className="min-w-0 text-[13.5px] font-medium text-ink-2">
+                <div className="text-[14.5px] font-bold text-ink">Багцаар зарна: 1 багц = {p.pack} ширхэг</div>
+                1 ширхэг {formatMnt(p.price)} · {p.pack}, {p.pack * 2}, {p.pack * 3}… ширхэгээр захиална
+              </div>
+            </div>
+          )}
 
           {(p.sale_percent || p.deal) && (
             <div className="mt-3 flex items-center gap-3 rounded-2xl bg-danger-soft px-4 py-3">

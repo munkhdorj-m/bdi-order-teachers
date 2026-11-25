@@ -16,6 +16,7 @@ import type { AdminProduct } from "@/lib/server/catalog";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
 import {
+  packAllFromBdiAction,
   resetProductAction,
   saveProductAction,
   setProductHiddenAction,
@@ -80,6 +81,19 @@ export function ProductsAdmin({
   // Switch and stock menu change at once; the server catches up.
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const [modes, setModes] = useState<Record<string, StockMode>>({});
+
+  const [packing, startPacking] = useTransition();
+  // BDI packs these, but this shop still sells them one by one.
+  const packable = products.filter((p) => p.bdiPack && !p.setting?.pack);
+
+  function packAll() {
+    startPacking(async () => {
+      const res = await packAllFromBdiAction();
+      if (!res.ok) toast.error(res.error);
+      else toast.success(`${res.count} барааг багцаар зарна`);
+      router.refresh();
+    });
+  }
 
   const hidden = (p: AdminProduct) => flipped[p.id] ?? !!p.setting?.hidden;
   const mode = (p: AdminProduct) => modes[p.id] ?? modeOf(p);
@@ -172,6 +186,22 @@ export function ProductsAdmin({
         </div>
       </div>
 
+      {ready && packable.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-info-soft p-3.5 sm:flex-row sm:items-center">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-info text-white">
+            <Package className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1 text-[13px] font-medium text-ink-2">
+            <div className="text-[14px] font-bold text-ink">BDI-д багцтай {packable.length} бараа ширхэгээр зарагдаж байна</div>
+            Жишээ нь «{packable[0].name}» — 1 багц = {packable[0].bdiPack} ширхэг. Нэг товчоор бүгдийг багцаар зарж болно.
+          </div>
+          <Button variant="primary" size="lg" disabled={packing} onClick={packAll} className="shrink-0">
+            {packing && <Loader2 className="animate-spin" />}
+            Бүгдийг багцаар зарах
+          </Button>
+        </div>
+      )}
+
       {shown.length === 0 ? (
         <EmptyState icon={<Package />} text="Бараа олдсонгүй" />
       ) : (
@@ -259,7 +289,8 @@ function EditProduct({
   const [name, setName] = useState(p.setting?.name ?? "");
   const [price, setPrice] = useState(p.setting?.price != null ? String(p.setting.price) : "");
   const [description, setDescription] = useState(p.setting?.description ?? "");
-  const [pack, setPack] = useState(p.setting?.pack != null ? String(p.setting.pack) : "");
+  const [byPack, setByPack] = useState(p.setting?.pack != null);
+  const [pack, setPack] = useState(String(p.setting?.pack ?? p.bdiPack ?? ""));
   const startType = saleTypeOf(p);
   const [saleType, setSaleType] = useState<SaleType>(startType);
   const [percent, setPercent] = useState(p.setting?.salePercent ? String(p.setting.salePercent) : "10");
@@ -299,8 +330,10 @@ function EditProduct({
       onDone();
     });
 
+  const packN = Number(pack);
   const save = async (): Promise<Result> => {
-    const res = await saveProductAction(p.id, { name, price, description, pack });
+    if (byPack && !(packN >= 2 && packN <= 500)) return { ok: false, error: "1 багцад хэдэн ширхэг байхыг бичнэ үү (2-500)" };
+    const res = await saveProductAction(p.id, { name, price, description, pack: byPack ? pack : "" });
     if (!res.ok || !saleChanged) return res;
     return setProductSaleAction(p.id, sale);
   };
@@ -325,18 +358,53 @@ function EditProduct({
         <input id="p-name" className="field" value={name} maxLength={200} placeholder={p.bdiName} onChange={(e) => setName(e.target.value)} />
       </div>
       <div>
-        <label htmlFor="p-pack" className="label">
-          Багц (ширхэг)
-        </label>
-        <input
-          id="p-pack"
-          className="field tabular-nums"
-          inputMode="numeric"
-          value={pack}
-          placeholder="Ширхэгээр"
-          onChange={(e) => setPack(e.target.value.replace(/\D/g, "").slice(0, 3))}
-        />
-        <p className="mt-1 text-[12px] font-medium text-ink-3">Жишээ нь 10 бол багш нар 10, 20, 30… ширхэгээр захиална. Үнэ нь 1 ширхэгийнх.</p>
+        <span className="label">Хэрхэн зарах</span>
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Хэрхэн зарах">
+          {(
+            [
+              [false, "Ширхэгээр"],
+              [true, "Багцаар"],
+            ] as [boolean, string][]
+          ).map(([v, label]) => (
+            <button
+              key={label}
+              type="button"
+              role="radio"
+              aria-checked={byPack === v}
+              onClick={() => setByPack(v)}
+              className={cn(
+                "h-9 rounded-lg text-[12.5px] font-bold transition-colors",
+                byPack === v ? "bg-surface text-ink shadow-sm" : "text-ink-3 hover:text-ink",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {byPack && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[14px] font-semibold">
+            <label htmlFor="p-pack">1 багц =</label>
+            <input
+              id="p-pack"
+              className="field h-10 w-20 text-center tabular-nums"
+              inputMode="numeric"
+              value={pack}
+              onChange={(e) => setPack(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            />
+            <span>ширхэг</span>
+            {p.bdiPack && packN !== p.bdiPack && (
+              <button type="button" className="chip" onClick={() => setPack(String(p.bdiPack))}>
+                BDI-ийнх: {p.bdiPack}ш
+              </button>
+            )}
+          </div>
+        )}
+        <p className="mt-1.5 text-[12px] font-medium text-ink-3">
+          {byPack && packN >= 2
+            ? `Багш нар ${packN}, ${packN * 2}, ${packN * 3}… ширхэгээр захиална.` +
+              (piece ? ` 1 багц = ${formatMnt(piece * packN)} (1ш ${formatMnt(piece)}).` : "")
+            : "Багш нар 1 ширхэгээс захиална." + (p.bdiPack ? ` BDI-д ${p.bdiPack} ширхэгээр багцлагдсан.` : "")}
+        </p>
       </div>
       <div>
         <label htmlFor="p-price" className="label">

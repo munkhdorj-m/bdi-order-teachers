@@ -45,7 +45,8 @@ export function Stepper({
   function commit() {
     const t = draft.trim();
     const n = Number(t);
-    if (t === "" || !Number.isFinite(n) || n < 0) return setDraft(String(shown));
+    if (t === "" || !Number.isFinite(n) || n < 0)
+      return setDraft(String(shown));
     const next = Math.min(Math.floor(MAX_QTY / unit), Math.floor(n));
     if (next === shown) setDraft(String(shown));
     else onChange(next * unit);
@@ -63,7 +64,9 @@ export function Stepper({
   const btn = cn(
     "grid shrink-0 place-items-center transition-colors disabled:opacity-40",
     w,
-    solid ? "hover:bg-black/10 active:bg-black/20" : "text-ink-2 hover:bg-muted hover:text-ink active:bg-muted-strong",
+    solid
+      ? "hover:bg-black/10 active:bg-black/20"
+      : "text-ink-2 hover:bg-muted hover:text-ink active:bg-muted-strong",
   );
 
   return (
@@ -71,7 +74,9 @@ export function Stepper({
       className={cn(
         "flex items-stretch overflow-hidden rounded-xl",
         h,
-        solid ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgb(9_132_91/0.9)]" : "bg-surface text-ink ring-1 ring-line",
+        solid
+          ? "bg-primary text-white shadow-[0_8px_18px_-10px_rgb(9_132_91/0.9)]"
+          : "bg-surface text-ink ring-1 ring-line",
         className,
       )}
     >
@@ -91,33 +96,43 @@ export function Stepper({
           <Minus className="size-4" strokeWidth={2.6} />
         )}
       </button>
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={draft}
-        size={1}
-        maxLength={3}
-        aria-label={label}
-        onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
-        onFocus={(e) => e.target.select()}
-        onClick={stop}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.currentTarget.blur();
-          } else if (e.key === "Escape") {
-            setDraft(String(shown));
-            e.currentTarget.blur();
-          }
-        }}
-        className={cn(
-          "min-w-0 flex-1 bg-transparent text-center font-bold tabular-nums outline-none focus-visible:outline-none",
-          size === "lg" ? "text-[17px]" : "text-[15px]",
-          solid ? "caret-white selection:bg-white/35 focus:bg-black/10" : "focus:bg-muted/70",
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={draft}
+          size={1}
+          maxLength={3}
+          aria-label={label}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
+          onFocus={(e) => e.target.select()}
+          onClick={stop}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === "Escape") {
+              setDraft(String(shown));
+              e.currentTarget.blur();
+            }
+          }}
+          className={cn(
+            "w-full min-w-0 bg-transparent text-center font-bold tabular-nums outline-none focus-visible:outline-none",
+            unit > 1 ? "rounded-md leading-tight" : "flex-1",
+            size === "lg" ? "text-[17px]" : "text-[15px]",
+            solid
+              ? "caret-white selection:bg-white/35 focus:bg-black/10"
+              : "focus:bg-muted/70",
+          )}
+        />
+        {unit > 1 && (
+          <span className="pointer-events-none text-[10px] font-semibold leading-none opacity-70">
+            багц
+          </span>
         )}
-      />
+      </div>
       <button
         type="button"
         aria-label="Нэмэх"

@@ -261,6 +261,8 @@ export type AdminProduct = {
   bdiName: string;
   bdiDescription: string | null;
   bdiPrice: number | null;
+  /** Pieces in one BDI pack (products.pack_size), when more than one. */
+  bdiPack: number | null;
   image_url: string | null;
   brand: string | null;
   stock: number;
@@ -276,8 +278,8 @@ export type AdminProduct = {
 export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]; ready: boolean; soldOutReady: boolean; saleReady: boolean }> {
   const settings = await getSettings();
   const [rows, cats, list, ps] = await Promise.all([
-    fetchAll<ProductRow & { description: string | null }>(() =>
-      db().from("products").select(`${COLS}, description`).eq("active", true).order("name").order("id"),
+    fetchAll<ProductRow & { description: string | null; pack_size: number | null }>(() =>
+      db().from("products").select(`${COLS}, description, pack_size`).eq("active", true).order("name").order("id"),
     ),
     categoriesQuery(),
     listPrices(settings.price_list_id),
@@ -295,6 +297,7 @@ export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]
       bdiName: r.name,
       bdiDescription: r.description?.trim() || null,
       bdiPrice: bdiPrice(r, list),
+      bdiPack: r.pack_size != null && Number(r.pack_size) >= 2 && Number(r.pack_size) <= 500 ? Number(r.pack_size) : null,
       image_url: r.image_url,
       brand: r.brand?.trim() || null,
       stock: Number(r.stock ?? 0),

@@ -89,6 +89,11 @@ export function CartPanel() {
                 </Link>
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-[12.5px] font-semibold leading-snug">{it.name}</div>
+                  {(it.pack ?? 1) > 1 && (
+                    <div className="text-[11px] font-medium text-ink-3 tabular-nums">
+                      {it.qty / (it.pack ?? 1)} багц = {it.qty} ширхэг
+                    </div>
+                  )}
                   <div className="mt-1.5 flex items-center gap-2">
                     <Stepper
                       qty={it.qty}

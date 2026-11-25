@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { deleteAccount, resetPin, setActive } from "@/lib/server/accounts";
 import { ADMIN_MOVES, editOrderItems, moveOrder, type AdminMove } from "@/lib/server/orders";
 import { getProductSettings, saveProductSetting, type ProductSetting } from "@/lib/server/product-settings";
+import { listProductsForAdmin } from "@/lib/server/catalog";
 import { requireAdmin } from "@/lib/server/session";
 import { saveShopSettings, settingsIbanReady } from "@/lib/server/settings";
 import { compactIban, isValidIban } from "@/lib/iban";
@@ -139,6 +140,28 @@ export async function saveProductAction(
   if (packN === 1 || packN > 500) return { ok: false, error: "Багц 2-500 ширхэг байна" };
   const pack = packN >= 2 ? packN : null;
   return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name, price, description, pack }));
+}
+
+/**
+ * Sell every product BDI packs (products.pack_size) by that багц, at once.
+ * Products the admin already set a багц for are left as they are.
+ */
+export async function packAllFromBdiAction(): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  await requireAdmin();
+  const { map, ready, soldOutReady, packReady, saleReady } = await getProductSettings();
+  if (!ready) return { ok: false, error: SQL_FIRST };
+  if (!packReady) return { ok: false, error: SQL_07_FIRST };
+  const { products } = await listProductsForAdmin();
+  const todo = products.filter((p) => p.bdiPack && !map.get(p.id)?.pack);
+  let count = 0;
+  for (const p of todo) {
+    const cur = map.get(p.id) ?? NO_SETTING;
+    const ok = await saveProductSetting(p.id, { ...cur, pack: p.bdiPack }, { soldOut: soldOutReady, pack: packReady, sale: saleReady });
+    if (ok) count++;
+  }
+  revalidatePath("/", "layout");
+  if (count < todo.length) return { ok: false, error: `${count}/${todo.length} хадгалагдлаа. Дахин оролдоно уу` };
+  return { ok: true, count };
 }
 
 /** Back to BDI's name, price and description (shown/hidden and sold out stay). */

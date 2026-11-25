@@ -30,11 +30,16 @@ export function ProductBuy({
     ) : qty === 0 ? (
       <Button variant="brand" size="lg" className="w-full" onClick={() => setQty(product, product.pack ?? 1)}>
         <Plus strokeWidth={2.6} />
-        Сагсанд нэмэх
+        {(product.pack ?? 1) > 1 ? `1 багц нэмэх (${product.pack}ш)` : "Сагсанд нэмэх"}
       </Button>
     ) : (
       <div className="flex gap-2">
-        <Stepper qty={qty} step={product.pack} onChange={(n) => setQty(product, n)} size="lg" className="flex-1" label={`${product.name}: тоо`} />
+        <div className="flex flex-1 flex-col gap-1">
+          <Stepper qty={qty} step={product.pack} onChange={(n) => setQty(product, n)} size="lg" label={`${product.name}: тоо`} />
+          {(product.pack ?? 1) > 1 && (
+            <span className="text-center text-[12px] font-semibold text-ink-3 tabular-nums">= {qty} ширхэг</span>
+          )}
+        </div>
         <Link href="/cart" className={buttonClass("primary", "lg", "flex-1")}>
           Сагс
           <ChevronRight />

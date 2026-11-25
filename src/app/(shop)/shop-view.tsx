@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, SearchX, ShoppingCart, X } from "lucide-react";
+import { Package, Plus, Search, SearchX, ShoppingCart, X } from "lucide-react";
 import { CartBar, CartPanel } from "@/components/cart-widgets";
 import { CatalogNav, sectionDomId, type CatalogNavItem } from "@/components/catalog-nav";
 import { InstallApp } from "@/components/install-app";
@@ -307,14 +307,20 @@ function ProductCard({
               )}
             </span>
           )}
+          {byPack && (
+            <span className="absolute bottom-2 left-2 z-[1] flex items-center gap-1 rounded-full bg-info px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
+              <Package className="size-3" strokeWidth={2.4} />
+              {product.pack}ш багц
+            </span>
+          )}
           {qty > 0 && (
             <span
               key={qty}
               className="absolute top-2 right-2 z-[1] flex h-7 min-w-7 items-center justify-center gap-1 rounded-full bg-primary px-2 text-[12px] font-bold text-white tabular-nums shadow-md ring-2 ring-surface animate-in fade-in zoom-in-50 duration-300"
-              aria-label={`Сагсанд ${qty} ширхэг`}
+              aria-label={byPack ? `Сагсанд ${qty / product.pack} багц` : `Сагсанд ${qty} ширхэг`}
             >
               <ShoppingCart className="size-3.5" strokeWidth={2.4} />
-              {qty}
+              {byPack ? `${qty / product.pack} багц` : qty}
             </span>
           )}
         </div>
@@ -339,11 +345,16 @@ function ProductCard({
               </span>
             )}
             {byPack ? (
-              <span className="text-[11.5px] font-medium text-ink-3">/багц · {product.pack}ш</span>
+              <span className="text-[11.5px] font-semibold text-ink-3">/ багц</span>
             ) : (
               product.unit && <span className="text-[11.5px] font-medium text-ink-3">/{product.unit}</span>
             )}
           </div>
+          {byPack && (
+            <div className="-mt-0.5 text-[11.5px] font-medium text-ink-3 tabular-nums">
+              {product.pack} ширхэг × {formatMnt(product.price)}
+            </div>
+          )}
         </div>
       </Link>
       <div className="px-3 pb-3">
@@ -361,7 +372,7 @@ function ProductCard({
             className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-primary-soft text-[13.5px] font-bold text-primary-ink transition-colors hover:bg-primary hover:text-white active:scale-[0.98]"
           >
             <Plus className="size-4" strokeWidth={2.6} />
-            Нэмэх
+            {byPack ? "Багц нэмэх" : "Нэмэх"}
           </button>
         )}
       </div>
