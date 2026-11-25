@@ -5,18 +5,19 @@ import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { MenuRowContent, menuRowClass } from "@/components/menu-row";
 import { PinInput } from "@/components/pin-input";
+import { useLang } from "@/components/lang";
 import { Sheet } from "@/components/ui/sheet";
 import { changePin } from "./actions";
 
 type Step = "current" | "new" | "repeat";
 
-const TITLES: Record<Step, string> = {
-  current: "Одоогийн PIN",
-  new: "Шинэ PIN",
-  repeat: "Шинэ PIN-ээ давтана уу",
-};
-
 export function ChangePin() {
+  const { t } = useLang();
+  const TITLES: Record<Step, string> = {
+    current: t("Одоогийн PIN", "Current PIN"),
+    new: t("Шинэ PIN", "New PIN"),
+    repeat: t("Шинэ PIN-ээ давтана уу", "Repeat your new PIN"),
+  };
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("current");
   const [value, setValue] = useState("");
@@ -52,13 +53,13 @@ export function ChangePin() {
       setValue("");
       setStep("repeat");
     } else if (v !== next) {
-      fail("Таарсангүй. Дахин оролдоно уу", "new");
+      fail(t("Таарсангүй. Дахин оролдоно уу", "PINs didn't match. Please try again"), "new");
     } else {
       start(async () => {
         const res = await changePin(current, v);
         if (res.ok) {
           // No reset here: the sheet is still fading out. Opening it resets.
-          toast.success("PIN солигдлоо");
+          toast.success(t("PIN солигдлоо", "PIN changed"));
           setOpen(false);
         } else {
           fail(res.error, res.step);
@@ -77,7 +78,7 @@ export function ChangePin() {
         }}
         className={menuRowClass}
       >
-        <MenuRowContent icon={<KeyRound />} label="PIN солих" />
+        <MenuRowContent icon={<KeyRound />} label={t("PIN солих", "Change PIN")} />
       </button>
       <Sheet open={open} onOpenChange={(v) => !pending && setOpen(v)} title={TITLES[step]}>
         <div className="flex flex-col items-center pb-2">

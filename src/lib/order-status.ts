@@ -3,6 +3,8 @@
  * "handed" (Өгсөн); it was dropped, and old rows that still say "handed"
  * count as paid everywhere.
  */
+import type { Lang } from "@/lib/i18n";
+
 export type OrderStatus = "new" | "paid" | "cancelled";
 
 export const ORDER_STATUSES: OrderStatus[] = ["new", "paid", "cancelled"];
@@ -28,6 +30,17 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   paid: "Төлсөн",
   cancelled: "Цуцалсан",
 };
+
+export const STATUS_LABEL_EN: Record<OrderStatus, string> = {
+  new: "Awaiting payment",
+  paid: "Paid",
+  cancelled: "Cancelled",
+};
+
+/** The buyer's status words in their language. */
+export function statusLabel(s: OrderStatus, lang: Lang = "mn"): string {
+  return (lang === "en" ? STATUS_LABEL_EN : STATUS_LABEL)[s];
+}
 
 /** Shorter words for the admin's chips. */
 export const STATUS_SHORT: Record<OrderStatus, string> = {

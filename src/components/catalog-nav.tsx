@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLang } from "@/components/lang";
 import { Sheet } from "@/components/ui/sheet";
 import {
   ALL_PRODUCTS_VISUAL,
@@ -37,6 +38,7 @@ function sectionTop(id: string, rail: HTMLElement | null): number | null {
 export function CatalogNav({ items, searchSlot }: { items: CatalogNavItem[]; searchSlot?: React.ReactNode }) {
   const [active, setActive] = useState<string | undefined>(items[0]?.id);
   const [gridOpen, setGridOpen] = useState(false);
+  const { t } = useLang();
   const railRef = useRef<HTMLDivElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   // While a tap-triggered scroll runs, don't let the spy flicker through
@@ -109,10 +111,10 @@ export function CatalogNav({ items, searchSlot }: { items: CatalogNavItem[]; sea
         <div
           ref={railRef}
           role="tablist"
-          aria-label="Ангилал"
+          aria-label={t("Ангилал", "Categories")}
           className="no-scrollbar flex gap-1 overflow-x-auto px-2 pt-2 pb-1.5 sm:px-5"
         >
-          <RailButton label="Бүгд" visual={ALL_PRODUCTS_VISUAL} active={gridOpen} onClick={() => setGridOpen(true)} popup />
+          <RailButton label={t("Бүгд", "All")} visual={ALL_PRODUCTS_VISUAL} active={gridOpen} onClick={() => setGridOpen(true)} popup />
           <span aria-hidden="true" className="my-2.5 w-px shrink-0 bg-line" />
           {items.map((it) => (
             <RailButton
@@ -128,7 +130,7 @@ export function CatalogNav({ items, searchSlot }: { items: CatalogNavItem[]; sea
         </div>
       </div>
 
-      <Sheet open={gridOpen} onOpenChange={setGridOpen} title="Ангилал" wide>
+      <Sheet open={gridOpen} onOpenChange={setGridOpen} title={t("Ангилал", "Categories")} wide>
         <div className="grid grid-cols-4 gap-x-1 gap-y-4 pb-2 sm:grid-cols-6">
           {items.map((it) => (
             <button
@@ -162,8 +164,8 @@ export function CatalogNav({ items, searchSlot }: { items: CatalogNavItem[]; sea
       <aside className="hidden w-60 shrink-0 lg:block">
         <div className="thin-scrollbar sticky top-[calc(4rem+1.5rem)] flex max-h-[calc(100dvh-6.5rem)] flex-col gap-4 overflow-y-auto pb-6">
           {searchSlot}
-          <nav aria-label="Ангилал" className="flex flex-col gap-0.5">
-            <div className="eyebrow mb-1.5 px-2">Ангилал</div>
+          <nav aria-label={t("Ангилал", "Categories")} className="flex flex-col gap-0.5">
+            <div className="eyebrow mb-1.5 px-2">{t("Ангилал", "Categories")}</div>
             {items.map((it) => {
               const on = it.id === active;
               return (

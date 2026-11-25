@@ -1,5 +1,6 @@
 import { getCatalog } from "@/lib/server/catalog";
 import { listMyOrders, type Order } from "@/lib/server/orders";
+import { getT } from "@/lib/server/lang";
 import { getTeacher } from "@/lib/server/session";
 import { CLOSED_DEFAULT, getSettings } from "@/lib/server/settings";
 import { ShopView } from "./shop-view";
@@ -25,7 +26,7 @@ function usualProductIds(orders: Order[]): string[] {
 
 /** Open to everyone: signing in is only needed to order. */
 export default async function ShopPage() {
-  const me = await getTeacher();
+  const [me, t] = await Promise.all([getTeacher(), getT()]);
   const [{ products, categories }, settings, orders] = await Promise.all([
     getCatalog(),
     getSettings(),
@@ -36,7 +37,7 @@ export default async function ShopPage() {
       products={products}
       categories={categories}
       usualIds={usualProductIds(orders)}
-      closedMessage={settings.open ? null : settings.closed_message || CLOSED_DEFAULT}
+      closedMessage={settings.open ? null : settings.closed_message || t(CLOSED_DEFAULT, "The shop is closed for now")}
     />
   );
 }

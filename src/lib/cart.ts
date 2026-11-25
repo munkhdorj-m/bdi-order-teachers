@@ -16,9 +16,9 @@ export type CartItem = {
   category_name: string | null;
   category_icon: string | null;
   unit_price: number;
-  /** Pieces. Always a multiple of `pack` when the product is sold by the багц. */
+  /** Pieces (by the piece or by the багц, both are fine). */
   qty: number;
-  /** Багц size (missing / 1 = by the piece). */
+  /** Pieces in one багц, when the product also comes as a багц (missing / 1 = none). */
   pack?: number;
   /** «2+1»-style deal: some pieces are free. */
   deal?: Deal | null;
@@ -50,16 +50,19 @@ function write(items: CartItem[]) {
   window.dispatchEvent(new Event(EVENT));
 }
 
-/** Set a product's quantity: adds it when new, removes it at 0. */
-/** Round to whole багцs (up), within the 999-piece limit. */
-function packed(qty: number, pack = 1): number {
-  const p = pack > 1 ? pack : 1;
-  const max = Math.floor(MAX_QTY / p) * p;
-  return Math.max(0, Math.min(max, Math.ceil(Math.floor(qty) / p) * p));
+function clampQty(qty: number): number {
+  return Math.max(0, Math.min(MAX_QTY, Math.floor(qty) || 0));
 }
 
+/** «1 багц + 2 ш» parts of a quantity, for showing it. */
+export function packParts(qty: number, pack = 1): { packs: number; rest: number } {
+  if (pack <= 1) return { packs: 0, rest: qty };
+  return { packs: Math.floor(qty / pack), rest: qty % pack };
+}
+
+/** Set a product's quantity: adds it when new, removes it at 0. */
 export function setQty(item: Omit<CartItem, "qty">, qty: number) {
-  const n = packed(qty, item.pack);
+  const n = clampQty(qty);
   const items = read();
   const i = items.findIndex((x) => x.product_id === item.product_id);
   if (n === 0) {
@@ -103,7 +106,7 @@ export function syncCartPrices(
       continue;
     }
     const pack = packs[it.product_id] ?? it.pack ?? 1;
-    const qty = packed(it.qty, pack);
+    const qty = clampQty(it.qty);
     const deal = deals[it.product_id] ?? null;
     if ((it.pack ?? 1) !== pack || qty !== it.qty || JSON.stringify(it.deal ?? null) !== JSON.stringify(deal)) repacked = true;
     if (Number(price) !== Number(it.unit_price)) repriced++;

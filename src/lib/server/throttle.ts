@@ -34,3 +34,4 @@ export async function throttleBlocked(key: string, max: number): Promise<boolean
 }
 
 export const TOO_MANY = "Хэт олон оролдлого. Түр хүлээгээд дахин оролдоно уу";
+export const TOO_MANY_EN = "Too many tries. Please wait a moment and try again";

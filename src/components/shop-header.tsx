@@ -6,6 +6,7 @@ import { ChevronLeft, LayoutDashboard, LogIn, Search } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { Logo } from "@/components/logo";
 import { CartBadge, TABS, useCartBadge } from "@/components/bottom-tabs";
+import { LangSwitch, useLang } from "@/components/lang";
 import { MenuButton, type MenuUser } from "@/components/menu-drawer";
 import { FOCUS_SEARCH_EVENT } from "@/lib/events";
 import { givenName } from "@/lib/format";
@@ -31,6 +32,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
   const badge = useCartBadge();
   const signedIn = !!user;
   const name = user?.name ?? "";
+  const { t } = useLang();
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/80 bg-surface/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl print:hidden">
@@ -38,7 +40,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
         {back && (
           <Link
             href={back}
-            aria-label="Буцах"
+            aria-label={t("Буцах", "Back")}
             className="grid size-10 shrink-0 place-items-center rounded-xl text-ink transition-colors hover:bg-muted md:hidden"
           >
             <ChevronLeft className="size-6" strokeWidth={2.2} />
@@ -47,12 +49,12 @@ export function ShopHeader({ user }: { user: MenuUser }) {
         <Link href="/" className={cn("flex shrink-0 items-center gap-2.5 rounded-xl pr-2", back && "max-md:hidden")}>
           <Logo size={34} />
           <span className="text-[16px] font-extrabold tracking-tight">
-            BDI <span className="font-semibold text-ink-3">Дэлгүүр</span>
+            BDI <span className="font-semibold text-ink-3">{t("Дэлгүүр", "Shop")}</span>
           </span>
         </Link>
 
-        <nav aria-label="Үндсэн цэс" className="ml-4 hidden items-center gap-1 md:flex lg:ml-8">
-          {TABS.filter((t) => t.href !== "/me").map(({ href, label, Icon, match }) => {
+        <nav aria-label={t("Үндсэн цэс", "Main menu")} className="ml-4 hidden items-center gap-1 md:flex lg:ml-8">
+          {TABS.filter((tab) => tab.href !== "/me").map(({ href, label, en, Icon, match }) => {
             const active = match(path);
             return (
               <Link
@@ -65,7 +67,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
                 )}
               >
                 <Icon className="size-[18px]" strokeWidth={active ? 2.3 : 2} />
-                {label}
+                {t(label, en ?? label)}
                 {href === "/cart" && <CartBadge {...badge} className="ml-0.5 ring-0" />}
               </Link>
             );
@@ -73,10 +75,11 @@ export function ShopHeader({ user }: { user: MenuUser }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5">
+          <LangSwitch className="hidden sm:inline-flex" />
           {path === "/" && (
             <button
               type="button"
-              aria-label="Хайх"
+              aria-label={t("Хайх", "Search")}
               onClick={() => window.dispatchEvent(new Event(FOCUS_SEARCH_EVENT))}
               className="grid size-10 place-items-center rounded-xl text-ink-2 transition-colors hover:bg-muted hover:text-ink lg:hidden"
             >
@@ -110,7 +113,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
               className="hidden h-10 items-center gap-2 rounded-full bg-ink px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b30] md:flex"
             >
               <LogIn className="size-4" />
-              Нэвтрэх
+              {t("Нэвтрэх", "Sign in")}
             </Link>
           )}
           <MenuButton user={user} className="-mr-1" />

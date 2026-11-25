@@ -90,7 +90,7 @@ export function ProductsAdmin({
     startPacking(async () => {
       const res = await packAllFromBdiAction();
       if (!res.ok) toast.error(res.error);
-      else toast.success(`${res.count} барааг багцаар зарна`);
+      else toast.success(`${res.count} бараанд «Багц» товч нэмэгдлээ`);
       router.refresh();
     });
   }
@@ -192,12 +192,12 @@ export function ProductsAdmin({
             <Package className="size-5" />
           </span>
           <div className="min-w-0 flex-1 text-[13px] font-medium text-ink-2">
-            <div className="text-[14px] font-bold text-ink">BDI-д багцтай {packable.length} бараа ширхэгээр зарагдаж байна</div>
-            Жишээ нь «{packable[0].name}» — 1 багц = {packable[0].bdiPack} ширхэг. Нэг товчоор бүгдийг багцаар зарж болно.
+            <div className="text-[14px] font-bold text-ink">BDI-д багцтай {packable.length} бараанд «Багц» товч алга</div>
+            Жишээ нь «{packable[0].name}» — 1 багц = {packable[0].bdiPack} ширхэг. Нэмбэл багш нар ширхэгээр ч, багцаар ч авна.
           </div>
           <Button variant="primary" size="lg" disabled={packing} onClick={packAll} className="shrink-0">
             {packing && <Loader2 className="animate-spin" />}
-            Бүгдийг багцаар зарах
+            Бүгдэд «Багц» нэмэх
           </Button>
         </div>
       )}
@@ -358,12 +358,12 @@ function EditProduct({
         <input id="p-name" className="field" value={name} maxLength={200} placeholder={p.bdiName} onChange={(e) => setName(e.target.value)} />
       </div>
       <div>
-        <span className="label">Хэрхэн зарах</span>
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Хэрхэн зарах">
+        <span className="label">Багц</span>
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Багц">
           {(
             [
-              [false, "Ширхэгээр"],
-              [true, "Багцаар"],
+              [false, "Зөвхөн ширхэгээр"],
+              [true, "Ширхэг + багц"],
             ] as [boolean, string][]
           ).map(([v, label]) => (
             <button
@@ -401,9 +401,9 @@ function EditProduct({
         )}
         <p className="mt-1.5 text-[12px] font-medium text-ink-3">
           {byPack && packN >= 2
-            ? `Багш нар ${packN}, ${packN * 2}, ${packN * 3}… ширхэгээр захиална.` +
+            ? `Багш нар 1 ширхэг эсвэл ${packN} ширхэгтэй багцаар нэмнэ.` +
               (piece ? ` 1 багц = ${formatMnt(piece * packN)} (1ш ${formatMnt(piece)}).` : "")
-            : "Багш нар 1 ширхэгээс захиална." + (p.bdiPack ? ` BDI-д ${p.bdiPack} ширхэгээр багцлагдсан.` : "")}
+            : "Зөвхөн «1 ширхэг» товч харагдана." + (p.bdiPack ? ` BDI-д ${p.bdiPack} ширхэгээр багцлагдсан.` : "")}
         </p>
       </div>
       <div>

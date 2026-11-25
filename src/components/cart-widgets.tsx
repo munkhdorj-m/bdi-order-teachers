@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { ChevronRight, ShoppingCart } from "lucide-react";
 import { CartBadge, useCartBadge } from "@/components/bottom-tabs";
+import { useLang } from "@/components/lang";
 import { ProductImage } from "@/components/product-image";
 import { buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
-import { cartCount, cartTotal, setQty, useCart } from "@/lib/cart";
+import { cartCount, cartTotal, packParts, setQty, useCart } from "@/lib/cart";
 import { formatMnt } from "@/lib/format";
 import { lineTotal } from "@/lib/sale";
+import { packText } from "@/lib/pack-text";
 import { useMounted } from "@/lib/use-mounted";
 
 /**
@@ -18,27 +20,39 @@ import { useMounted } from "@/lib/use-mounted";
 export function CartBar() {
   const items = useCart();
   const badge = useCartBadge();
+  const { t } = useLang();
   if (items.length === 0) return null;
   const total = cartTotal(items);
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.625rem)] z-30 px-3 md:bottom-6 xl:hidden print:hidden">
       <Link
         href="/cart"
-        aria-label={`Сагс: ${items.length} бараа, ${formatMnt(total)}`}
+        aria-label={t(
+          `Сагс: ${items.length} бараа, ${formatMnt(total)}`,
+          `Cart: ${items.length} items, ${formatMnt(total)}`,
+        )}
         className="pointer-events-auto mx-auto flex max-w-lg items-center gap-3 rounded-2xl bg-ink py-2.5 pr-4 pl-2.5 text-white shadow-float transition-transform duration-150 animate-in fade-in slide-in-from-bottom-3 active:scale-[0.98]"
       >
         <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-white/10">
           <ShoppingCart className="size-5" />
-          <CartBadge {...badge} className="absolute -top-1.5 -right-1.5 ring-ink" />
+          <CartBadge
+            {...badge}
+            className="absolute -top-1.5 -right-1.5 ring-ink"
+          />
         </span>
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block text-[11.5px] font-medium text-white/60">
-            {items.length} төрөл · {cartCount(items)} ширхэг
+            {t(
+              `${items.length} төрөл · ${cartCount(items)} ширхэг`,
+              `${items.length} ${items.length === 1 ? "product" : "products"} · ${cartCount(items)} pcs`,
+            )}
           </span>
-          <span className="block text-[16px] font-bold tabular-nums">{formatMnt(total)}</span>
+          <span className="block text-[16px] font-bold tabular-nums">
+            {formatMnt(total)}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-0.5 text-[14px] font-semibold">
-          Сагс
+          {t("Сагс", "Cart")}
           <ChevronRight className="size-4" />
         </span>
       </Link>
@@ -50,13 +64,16 @@ export function CartBar() {
 export function CartPanel() {
   const items = useCart();
   const mounted = useMounted();
+  const { t } = useLang();
   return (
     <div className="card flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3.5">
         <ShoppingCart className="size-[18px]" />
-        <span className="text-[15px] font-bold">Сагс</span>
+        <span className="text-[15px] font-bold">{t("Сагс", "Cart")}</span>
         {items.length > 0 && (
-          <span className="ml-auto text-[12px] font-semibold text-ink-3 tabular-nums">{items.length} бараа</span>
+          <span className="ml-auto text-[12px] font-semibold text-ink-3 tabular-nums">
+            {t(`${items.length} бараа`, `${items.length} ${items.length === 1 ? "item" : "items"}`)}
+          </span>
         )}
       </div>
 
@@ -67,7 +84,9 @@ export function CartPanel() {
           <span className="grid size-12 place-items-center rounded-2xl bg-muted text-ink-3">
             <ShoppingCart className="size-5" />
           </span>
-          <span className="text-[13px] font-semibold text-ink-3">Сагс хоосон</span>
+          <span className="text-[13px] font-semibold text-ink-3">
+            {t("Сагс хоосон", "Cart is empty")}
+          </span>
         </div>
       ) : (
         <>
@@ -82,29 +101,39 @@ export function CartPanel() {
                   <ProductImage
                     src={it.image_url}
                     alt={it.name}
-                    category={it.category_name ? { name: it.category_name, icon: it.category_icon } : null}
+                    category={
+                      it.category_name
+                        ? { name: it.category_name, icon: it.category_icon }
+                        : null
+                    }
                     sizes="48px"
                     small
                   />
                 </Link>
                 <div className="min-w-0 flex-1">
-                  <div className="line-clamp-2 text-[12.5px] font-semibold leading-snug">{it.name}</div>
-                  {(it.pack ?? 1) > 1 && (
-                    <div className="text-[11px] font-medium text-ink-3 tabular-nums">
-                      {it.qty / (it.pack ?? 1)} багц = {it.qty} ширхэг
-                    </div>
-                  )}
+                  <div className="line-clamp-2 text-[12.5px] font-semibold leading-snug">
+                    {it.name}
+                  </div>
+                  {(it.pack ?? 1) > 1 &&
+                    packParts(it.qty, it.pack).packs > 0 && (
+                      <div className="text-[11px] font-semibold text-info tabular-nums">
+                        {it.qty}
+                        {t("ш", " pcs")} ={" "}
+                        {packText(packParts(it.qty, it.pack), t)}
+                      </div>
+                    )}
                   <div className="mt-1.5 flex items-center gap-2">
                     <Stepper
                       qty={it.qty}
-                      step={it.pack}
                       onChange={(n) => setQty(it, n)}
                       tone="outline"
                       size="sm"
                       className="w-[6.5rem]"
-                      label={`${it.name}: тоо`}
+                      label={t(`${it.name}: тоо`, `${it.name}: quantity`)}
                     />
-                    <span className="ml-auto text-[13px] font-bold tabular-nums">{formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}</span>
+                    <span className="ml-auto text-[13px] font-bold tabular-nums">
+                      {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}
+                    </span>
                   </div>
                 </div>
               </li>
@@ -112,11 +141,18 @@ export function CartPanel() {
           </ul>
           <div className="space-y-3 border-t border-line p-4">
             <div className="flex items-baseline justify-between">
-              <span className="text-[13px] font-semibold text-ink-2">Нийт</span>
-              <span className="text-[20px] font-extrabold tabular-nums tracking-tight">{formatMnt(cartTotal(items))}</span>
+              <span className="text-[13px] font-semibold text-ink-2">
+                {t("Нийт", "Total")}
+              </span>
+              <span className="text-[20px] font-extrabold tabular-nums tracking-tight">
+                {formatMnt(cartTotal(items))}
+              </span>
             </div>
-            <Link href="/cart" className={buttonClass("primary", "lg", "w-full")}>
-              Захиалах
+            <Link
+              href="/cart"
+              className={buttonClass("primary", "lg", "w-full")}
+            >
+              {t("Захиалах", "Checkout")}
               <ChevronRight />
             </Link>
           </div>

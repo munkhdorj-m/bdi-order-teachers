@@ -2,6 +2,8 @@
  * Calendar days in Ulaanbaatar. Mongolia is UTC+8 all year (no daylight
  * saving since 2017), so a fixed offset is exact. Day keys are "YYYY-MM-DD".
  */
+import type { Lang } from "@/lib/i18n";
+
 const OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -29,7 +31,10 @@ export function lastUbDays(days: number, now: Date = new Date()): string[] {
   return Array.from({ length: days }, (_, i) => shiftDay(today, i - (days - 1)));
 }
 
-/** "2026-11-08" → "11.08" */
-export function dayLabel(key: string): string {
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-11-08" → "11.08" (English: "Nov 8") */
+export function dayLabel(key: string, lang: Lang = "mn"): string {
+  if (lang === "en") return `${MONTHS_EN[Number(key.slice(5, 7)) - 1] ?? key.slice(5, 7)} ${Number(key.slice(8, 10))}`;
   return `${key.slice(5, 7)}.${key.slice(8, 10)}`;
 }

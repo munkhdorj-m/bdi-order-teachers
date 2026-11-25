@@ -7,6 +7,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { BRAND_GRADIENT } from "@/lib/brand";
 import { compactIban, formatIban } from "@/lib/iban";
 import { formatDateTime, formatMnt } from "@/lib/format";
+import { makeT, type Lang, type T } from "@/lib/i18n";
 import type { Order } from "@/lib/server/orders";
 import type { ShopSettings } from "@/lib/server/settings";
 import { cn } from "@/lib/utils";
@@ -23,14 +24,17 @@ export function OrderView({
   settings,
   phone,
   justPlaced = false,
+  lang = "mn",
 }: {
   order: Order;
   settings: ShopSettings;
   phone: string;
   justPlaced?: boolean;
+  lang?: Lang;
 }) {
+  const t = makeT(lang);
   const unpaid = order.status === "new";
-  const pay = <PayCard order={order} settings={settings} transferNote={`${order.order_number} ${phone}`} />;
+  const pay = <PayCard order={order} settings={settings} transferNote={`${order.order_number} ${phone}`} t={t} />;
   const lines = order.items.map((i) => ({
     product_id: i.product_id,
     name: i.name,
@@ -47,22 +51,22 @@ export function OrderView({
 
   return (
     <div className="mx-auto max-w-6xl px-3 pt-4 sm:px-6 lg:px-8 lg:pt-8">
-      {justPlaced && unpaid && <PlacedHero order={order} />}
+      {justPlaced && unpaid && <PlacedHero order={order} t={t} />}
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="eyebrow">Захиалга</span>
+        <span className="eyebrow">{t("Захиалга", "Order")}</span>
         <h1 className="text-[24px] font-extrabold leading-tight md:text-[28px]">{order.order_number}</h1>
         <span className="ml-auto text-[12.5px] font-medium text-ink-3 tabular-nums">{formatDateTime(order.created_at)}</span>
       </div>
 
       <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-8">
         <div className="space-y-5">
-          <StatusCard order={order} />
+          <StatusCard order={order} lang={lang} t={t} />
           {unpaid && <div className="lg:hidden">{pay}</div>}
-          <Items order={order} />
+          <Items order={order} t={t} />
           {order.note && (
             <section className="card p-4 sm:p-5">
-              <div className="eyebrow">Тэмдэглэл</div>
+              <div className="eyebrow">{t("Тэмдэглэл", "Note")}</div>
               <p className="mt-1.5 whitespace-pre-line break-words text-[14.5px] leading-relaxed text-ink-2">{order.note}</p>
             </section>
           )}
@@ -83,11 +87,11 @@ export function OrderView({
   );
 }
 
-function PlacedHero({ order }: { order: Order }) {
+function PlacedHero({ order, t }: { order: Order; t: T }) {
   const stats = [
-    { label: "Бараа", value: String(order.items.length) },
-    { label: "Нийт", value: formatMnt(order.total) },
-    { label: "Дугаар", value: order.order_number },
+    { label: t("Бараа", "Items"), value: String(order.items.length) },
+    { label: t("Нийт", "Total"), value: formatMnt(order.total) },
+    { label: t("Дугаар", "Number"), value: order.order_number },
   ];
   return (
     <section className="relative mb-6 overflow-hidden rounded-3xl bg-surface px-6 pt-8 pb-5 text-center shadow-card ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-500">
@@ -106,7 +110,7 @@ function PlacedHero({ order }: { order: Order }) {
         >
           <Check className="size-9" strokeWidth={3} />
         </div>
-        <h2 className="mt-4 text-[22px] font-extrabold">Захиалга илгээгдлээ</h2>
+        <h2 className="mt-4 text-[22px] font-extrabold">{t("Захиалга илгээгдлээ", "Order sent")}</h2>
         <div className="mx-auto mt-5 grid max-w-md grid-cols-3 gap-3 rounded-2xl bg-surface/80 px-4 py-3 ring-1 ring-line">
           {stats.map((s) => (
             <div key={s.label} className="min-w-0">
@@ -116,24 +120,24 @@ function PlacedHero({ order }: { order: Order }) {
           ))}
         </div>
         <Link href="/" className={buttonClass("ghost", "sm", "mt-3")}>
-          Дэлгүүр рүү буцах
+          {t("Дэлгүүр рүү буцах", "Back to shop")}
         </Link>
       </div>
     </section>
   );
 }
 
-function StatusCard({ order }: { order: Order }) {
+function StatusCard({ order, lang, t }: { order: Order; lang: Lang; t: T }) {
   return (
     <section className="card p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
-        <StatusChip status={order.status} long />
+        <StatusChip status={order.status} long lang={lang} />
         <div className="text-right">
-          <div className="text-[11.5px] font-semibold text-ink-3">Нийт</div>
+          <div className="text-[11.5px] font-semibold text-ink-3">{t("Нийт", "Total")}</div>
           <div className="text-[20px] font-extrabold tracking-tight tabular-nums">{formatMnt(order.total)}</div>
         </div>
       </div>
-      <Timeline order={order} />
+      <Timeline order={order} t={t} />
     </section>
   );
 }
@@ -141,16 +145,16 @@ function StatusCard({ order }: { order: Order }) {
 type Tone = "done" | "current" | "pending" | "cancelled";
 
 /** Захиалсан → Төлсөн, with times. */
-function Timeline({ order }: { order: Order }) {
+function Timeline({ order, t }: { order: Order; t: T }) {
   const rows: { label: string; at: string | null; tone: Tone }[] =
     order.status === "cancelled"
       ? [
-          { label: "Захиалсан", at: order.created_at, tone: "done" },
-          { label: "Цуцалсан", at: order.cancelled_at, tone: "cancelled" },
+          { label: t("Захиалсан", "Ordered"), at: order.created_at, tone: "done" },
+          { label: t("Цуцалсан", "Cancelled"), at: order.cancelled_at, tone: "cancelled" },
         ]
       : [
-          { label: "Захиалсан", at: order.created_at, tone: "done" },
-          { label: "Төлсөн", at: order.paid_at, tone: order.status === "paid" ? "done" : "current" },
+          { label: t("Захиалсан", "Ordered"), at: order.created_at, tone: "done" },
+          { label: t("Төлсөн", "Paid"), at: order.paid_at, tone: order.status === "paid" ? "done" : "current" },
         ];
   return (
     <ol className="mt-6 grid grid-cols-2">
@@ -201,20 +205,30 @@ function Dot({ tone }: { tone: Tone }) {
   );
 }
 
-function PayCard({ order, settings, transferNote }: { order: Order; settings: ShopSettings; transferNote: string }) {
+function PayCard({
+  order,
+  settings,
+  transferNote,
+  t,
+}: {
+  order: Order;
+  settings: ShopSettings;
+  transferNote: string;
+  t: T;
+}) {
   const rows: { label: string; value: string; copy?: string }[] = [
-    { label: "Банк", value: settings.bank_name },
-    { label: "Дансны дугаар", value: settings.account_number },
+    { label: t("Банк", "Bank"), value: settings.bank_name },
+    { label: t("Дансны дугаар", "Account number"), value: settings.account_number },
     { label: "IBAN", value: formatIban(settings.iban), copy: compactIban(settings.iban) },
-    { label: "Данс эзэмшигч", value: settings.account_name },
-    { label: "Гүйлгээний утга", value: transferNote },
+    { label: t("Данс эзэмшигч", "Account holder"), value: settings.account_name },
+    { label: t("Гүйлгээний утга", "Transfer note"), value: transferNote },
   ].filter((r) => r.value.trim());
   return (
     <section className="relative overflow-hidden rounded-3xl bg-ink p-5 text-white shadow-lift">
       <div aria-hidden="true" className="pointer-events-none absolute -top-24 -right-16 size-64 rounded-full bg-primary/45 blur-3xl" />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-20 size-64 rounded-full bg-primary-bright/15 blur-3xl" />
       <div className="relative">
-        <div className="text-[12px] font-semibold text-white/55">Төлөх дүн</div>
+        <div className="text-[12px] font-semibold text-white/55">{t("Төлөх дүн", "Amount to pay")}</div>
         <div className="mt-1 flex items-center justify-between gap-3">
           <div className="text-[32px] font-extrabold leading-none tracking-tight tabular-nums">{formatMnt(order.total)}</div>
           <CopyButton value={String(Math.round(order.total))} dark />
@@ -240,11 +254,13 @@ function PayCard({ order, settings, transferNote }: { order: Order; settings: Sh
   );
 }
 
-function Items({ order }: { order: Order }) {
+function Items({ order, t }: { order: Order; t: T }) {
   return (
     <section className="card overflow-hidden">
       <div className="px-4 pt-4 pb-1 sm:px-5">
-        <span className="eyebrow">Бараа · {order.items.length}</span>
+        <span className="eyebrow">
+          {t("Бараа", "Items")} · {order.items.length}
+        </span>
       </div>
       <ul className="divide-y divide-line">
         {order.items.map((it, i) => {
@@ -274,7 +290,7 @@ function Items({ order }: { order: Order }) {
         })}
       </ul>
       <div className="flex items-baseline justify-between border-t border-line bg-muted/40 px-4 py-3.5 sm:px-5">
-        <span className="text-[14px] font-semibold">Нийт</span>
+        <span className="text-[14px] font-semibold">{t("Нийт", "Total")}</span>
         <span className="text-[20px] font-extrabold tracking-tight tabular-nums">{formatMnt(order.total)}</span>
       </div>
     </section>

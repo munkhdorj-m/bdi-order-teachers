@@ -10,6 +10,7 @@ import { SignOutButton } from "@/app/(shop)/me/sign-out-button";
 import { Avatar } from "@/components/avatar";
 import { CartBadge, TABS, useCartBadge, type NavTab } from "@/components/bottom-tabs";
 import { InstallApp } from "@/components/install-app";
+import { LangSwitch, useLang } from "@/components/lang";
 import { Logo } from "@/components/logo";
 import { buttonClass } from "@/components/ui/button";
 import { formatPhone } from "@/lib/format";
@@ -27,6 +28,7 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const badge = useCartBadge();
+  const { t } = useLang();
 
   // Close once a link has taken us to another page.
   const [lastPath, setLastPath] = useState(path);
@@ -50,7 +52,7 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
         )}
       >
         <it.Icon className="size-5 shrink-0" strokeWidth={active ? 2.3 : 1.9} />
-        <span className="min-w-0 flex-1 truncate">{it.label}</span>
+        <span className="min-w-0 flex-1 truncate">{t(it.label, it.en ?? it.label)}</span>
         {cart && <CartBadge {...badge} className="ring-0" />}
       </Link>
     );
@@ -61,7 +63,7 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
       <Dialog.Trigger asChild>
         <button
           type="button"
-          aria-label="Цэс"
+          aria-label={t("Цэс", "Menu")}
           className={cn(
             "grid size-10 shrink-0 place-items-center rounded-xl text-ink transition-colors hover:bg-muted md:hidden",
             className,
@@ -79,10 +81,10 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
           <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-line px-4">
             <Logo size={30} />
             <Dialog.Title className="text-[16px] font-extrabold tracking-tight">
-              BDI <span className="font-semibold text-ink-3">Дэлгүүр</span>
+              BDI <span className="font-semibold text-ink-3">{t("Дэлгүүр", "Shop")}</span>
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Хаах"
+              aria-label={t("Хаах", "Close")}
               className="ml-auto grid size-9 place-items-center rounded-full bg-muted text-ink-2 transition-colors hover:bg-muted-strong hover:text-ink"
             >
               <X className="size-[18px]" />
@@ -102,12 +104,12 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
               path !== "/login" && (
                 <Link href={loginHref(path)} className={buttonClass("primary", "lg", "mb-4 w-full")}>
                   <LogIn />
-                  Нэвтрэх
+                  {t("Нэвтрэх", "Sign in")}
                 </Link>
               )
             )}
 
-            <nav aria-label="Цэс" className="space-y-0.5">
+            <nav aria-label={t("Цэс", "Menu")} className="space-y-0.5">
               {shop.map((it) => row(it, it.href === "/cart"))}
             </nav>
 
@@ -119,6 +121,11 @@ export function MenuButton({ user, className }: { user: MenuUser; className?: st
                 </nav>
               </>
             )}
+
+            <div className="mt-4 flex items-center justify-between gap-2 px-3">
+              <span className="text-[13.5px] font-semibold text-ink-2">{t("Хэл", "Language")}</span>
+              <LangSwitch />
+            </div>
 
             <div className="-mx-3 mt-4 border-t border-line pt-2">
               <InstallApp variant="row" />

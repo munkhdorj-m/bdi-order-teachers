@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { useLang } from "@/components/lang";
 import { cn } from "@/lib/utils";
 
 async function copyText(text: string) {
@@ -24,6 +25,7 @@ async function copyText(text: string) {
 
 export function CopyButton({ value, className, dark = false }: { value: string; className?: string; dark?: boolean }) {
   const [done, setDone] = useState(false);
+  const { t } = useLang();
   return (
     <button
       type="button"
@@ -45,7 +47,7 @@ export function CopyButton({ value, className, dark = false }: { value: string; 
       )}
     >
       {done ? <Check className="size-3.5" strokeWidth={2.8} /> : <Copy className="size-3.5" strokeWidth={2.2} />}
-      {done ? "Хуулсан" : "Хуулах"}
+      {done ? t("Хуулсан", "Copied") : t("Хуулах", "Copy")}
     </button>
   );
 }

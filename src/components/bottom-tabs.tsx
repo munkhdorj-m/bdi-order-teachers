@@ -12,17 +12,25 @@ import {
   ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
+import { useLang } from "@/components/lang";
 import { useCart } from "@/lib/cart";
 import { loginHref } from "@/lib/next-path";
 import { cn } from "@/lib/utils";
 
-export type NavTab = { href: string; label: string; Icon: LucideIcon; match: (path: string) => boolean };
+export type NavTab = {
+  href: string;
+  label: string;
+  /** English label (admin pages stay Mongolian). */
+  en?: string;
+  Icon: LucideIcon;
+  match: (path: string) => boolean;
+};
 
 export const TABS: NavTab[] = [
-  { href: "/", label: "Дэлгүүр", Icon: ShoppingBag, match: (p) => p === "/" || p.startsWith("/products/") },
-  { href: "/orders", label: "Захиалга", Icon: ClipboardList, match: (p) => p.startsWith("/orders") },
-  { href: "/cart", label: "Сагс", Icon: ShoppingCart, match: (p) => p === "/cart" },
-  { href: "/me", label: "Би", Icon: CircleUserRound, match: (p) => p === "/me" },
+  { href: "/", label: "Дэлгүүр", en: "Shop", Icon: ShoppingBag, match: (p) => p === "/" || p.startsWith("/products/") },
+  { href: "/orders", label: "Захиалга", en: "Orders", Icon: ClipboardList, match: (p) => p.startsWith("/orders") },
+  { href: "/cart", label: "Сагс", en: "Cart", Icon: ShoppingCart, match: (p) => p === "/cart" },
+  { href: "/me", label: "Би", en: "Me", Icon: CircleUserRound, match: (p) => p === "/me" },
 ];
 
 /** Admins get one more tab on phones (the desktop header has its own link). */
@@ -46,6 +54,7 @@ export function useCartBadge(): { count: number; bounce: boolean } {
 }
 
 export function CartBadge({ count, bounce, className }: { count: number; bounce: boolean; className?: string }) {
+  const { t } = useLang();
   if (count <= 0) return null;
   return (
     <span
@@ -54,7 +63,7 @@ export function CartBadge({ count, bounce, className }: { count: number; bounce:
         bounce && "animate-pop",
         className,
       )}
-      aria-label={`Сагсанд ${count} бараа`}
+      aria-label={t(`Сагсанд ${count} бараа`, `${count} items in cart`)}
     >
       {count > 99 ? "99+" : count}
     </span>
@@ -68,6 +77,7 @@ export function CartBadge({ count, bounce, className }: { count: number; bounce:
 export function BottomBar({ tabs, label, cart = false }: { tabs: NavTab[]; label: string; cart?: boolean }) {
   const path = usePathname();
   const badge = useCartBadge();
+  const { t } = useLang();
   return (
     <nav
       aria-label={label}
@@ -77,7 +87,7 @@ export function BottomBar({ tabs, label, cart = false }: { tabs: NavTab[]; label
         className="mx-auto grid h-16 max-w-lg px-1.5"
         style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
       >
-        {tabs.map(({ href, label: text, Icon, match }) => {
+        {tabs.map(({ href, label: text, en, Icon, match }) => {
           const active = match(path);
           return (
             <li key={href} className="min-w-0">
@@ -102,7 +112,7 @@ export function BottomBar({ tabs, label, cart = false }: { tabs: NavTab[]; label
                     active ? "font-bold text-ink" : "font-semibold text-ink-3",
                   )}
                 >
-                  {text}
+                  {t(text, en ?? text)}
                 </span>
               </Link>
             </li>
@@ -119,10 +129,11 @@ export function BottomBar({ tabs, label, cart = false }: { tabs: NavTab[]; label
  */
 export function BottomTabs({ isAdmin = false, signedIn = true }: { isAdmin?: boolean; signedIn?: boolean }) {
   const path = usePathname();
+  const { t } = useLang();
   const tabs: NavTab[] = signedIn
     ? isAdmin
       ? [...TABS, ADMIN_TAB]
       : TABS
-    : [...TABS.slice(0, 3), { href: loginHref(path), label: "Нэвтрэх", Icon: LogIn, match: (p) => p === "/login" }];
-  return <BottomBar tabs={tabs} label="Үндсэн цэс" cart />;
+    : [...TABS.slice(0, 3), { href: loginHref(path), label: "Нэвтрэх", en: "Sign in", Icon: LogIn, match: (p) => p === "/login" }];
+  return <BottomBar tabs={tabs} label={t("Үндсэн цэс", "Main menu")} cart />;
 }

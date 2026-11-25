@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getLang } from "@/lib/server/lang";
 import { getMyOrder } from "@/lib/server/orders";
 import { requireTeacher } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
@@ -13,7 +14,7 @@ export default async function OrderPage({
 }) {
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const me = await requireTeacher(`/orders/${id}`);
-  const [order, settings] = await Promise.all([getMyOrder(me.id, id), getSettings()]);
+  const [order, settings, lang] = await Promise.all([getMyOrder(me.id, id), getSettings(), getLang()]);
   if (!order) notFound();
-  return <OrderView order={order} settings={settings} phone={me.phone} justPlaced={sp.new === "1"} />;
+  return <OrderView order={order} settings={settings} phone={me.phone} justPlaced={sp.new === "1"} lang={lang} />;
 }

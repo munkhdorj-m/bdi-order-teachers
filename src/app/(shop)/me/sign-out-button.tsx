@@ -2,12 +2,14 @@
 
 import { useTransition } from "react";
 import { Loader2, LogOut } from "lucide-react";
+import { useLang } from "@/components/lang";
 import { Button } from "@/components/ui/button";
 import { clearCart } from "@/lib/cart";
 import { signOut } from "./actions";
 
 export function SignOutButton() {
   const [pending, start] = useTransition();
+  const { t } = useLang();
   return (
     <Button
       variant="secondary"
@@ -22,7 +24,7 @@ export function SignOutButton() {
       }
     >
       {pending ? <Loader2 className="animate-spin" /> : <LogOut />}
-      Гарах
+      {t("Гарах", "Sign out")}
     </Button>
   );
 }

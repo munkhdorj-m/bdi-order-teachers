@@ -3,7 +3,9 @@
 import { useState, type ReactNode } from "react";
 import { Download, EllipsisVertical, Share, SquarePlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useLang } from "@/components/lang";
 import { MenuRowContent, menuRowClass } from "@/components/menu-row";
+import type { T } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { BRAND_GRADIENT } from "@/lib/brand";
@@ -34,6 +36,8 @@ export function InstallApp({ variant }: { variant: "row" | "banner" | "link" }) 
   const prompt = useInstallPrompt();
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(readDismissed);
+  const { t } = useLang();
+  const installLabel = t("Утсандаа суулгах", "Install on your phone");
 
   if (!mounted || isStandalone()) return null;
   const platform = detectPlatform();
@@ -41,15 +45,15 @@ export function InstallApp({ variant }: { variant: "row" | "banner" | "link" }) 
 
   async function install() {
     if (prompt) {
-      if (await runInstallPrompt()) toast.success("Суулгалаа");
+      if (await runInstallPrompt()) toast.success(t("Суулгалаа", "Installed"));
       return;
     }
     setOpen(true);
   }
 
   const sheet = (
-    <Sheet open={open} onOpenChange={setOpen} title="Утсандаа суулгах">
-      <Steps platform={platform} />
+    <Sheet open={open} onOpenChange={setOpen} title={installLabel}>
+      <Steps platform={platform} t={t} />
     </Sheet>
   );
 
@@ -59,13 +63,13 @@ export function InstallApp({ variant }: { variant: "row" | "banner" | "link" }) 
         <span className="grid size-10 shrink-0 place-items-center rounded-xl text-white" style={{ backgroundImage: BRAND_GRADIENT }}>
           <Download className="size-5" strokeWidth={2.2} />
         </span>
-        <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight">Утсандаа суулгах</span>
+        <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight">{installLabel}</span>
         <Button variant="brand" size="sm" onClick={install}>
-          Суулгах
+          {t("Суулгах", "Install")}
         </Button>
         <button
           type="button"
-          aria-label="Хаах"
+          aria-label={t("Хаах", "Close")}
           className="-mr-1 grid size-8 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-muted hover:text-ink"
           onClick={() => {
             try {
@@ -92,7 +96,7 @@ export function InstallApp({ variant }: { variant: "row" | "banner" | "link" }) 
           className="mx-auto flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold text-ink-3 transition-colors hover:bg-muted hover:text-ink"
         >
           <Download className="size-4" />
-          Утсандаа суулгах
+          {installLabel}
         </button>
         {sheet}
       </>
@@ -102,7 +106,7 @@ export function InstallApp({ variant }: { variant: "row" | "banner" | "link" }) 
   return (
     <>
       <button type="button" onClick={install} className={menuRowClass}>
-        <MenuRowContent icon={<Download />} label="Утсандаа суулгах" />
+        <MenuRowContent icon={<Download />} label={installLabel} />
       </button>
       {sheet}
     </>
@@ -123,19 +127,19 @@ function Step({ n, icon, children }: { n: number; icon?: ReactNode; children: Re
   );
 }
 
-function Steps({ platform }: { platform: Platform }) {
+function Steps({ platform, t }: { platform: Platform; t: T }) {
   const list = "divide-y divide-line overflow-hidden rounded-2xl ring-1 ring-line";
   if (platform === "ios") {
     return (
       <ol className={list}>
-        <Step n={1}>Safari-гаар нээнэ</Step>
+        <Step n={1}>{t("Safari-гаар нээнэ", "Open in Safari")}</Step>
         <Step n={2} icon={<Share className="size-4" />}>
-          Доод талын
+          {t("Доод талын", "Tap")}
         </Step>
         <Step n={3} icon={<SquarePlus className="size-4" />}>
           «Add to Home Screen»
         </Step>
-        <Step n={4}>«Add» дарна</Step>
+        <Step n={4}>{t("«Add» дарна", "Tap «Add»")}</Step>
       </ol>
     );
   }
@@ -143,16 +147,16 @@ function Steps({ platform }: { platform: Platform }) {
     return (
       <ol className={list}>
         <Step n={1} icon={<EllipsisVertical className="size-4" />}>
-          Chrome-ийн цэс
+          {t("Chrome-ийн цэс", "Chrome's menu")}
         </Step>
-        <Step n={2}>«Install app» эсвэл «Add to Home screen»</Step>
-        <Step n={3}>«Install» дарна</Step>
+        <Step n={2}>{t("«Install app» эсвэл «Add to Home screen»", "«Install app» or «Add to Home screen»")}</Step>
+        <Step n={3}>{t("«Install» дарна", "Tap «Install»")}</Step>
       </ol>
     );
   }
   return (
     <div className="rounded-2xl p-4 text-[15px] font-semibold ring-1 ring-line">
-      Утсаараа энэ хаягийг нээгээд суулгана уу:
+      {t("Утсаараа энэ хаягийг нээгээд суулгана уу:", "Open this address on your phone and install it:")}
       <div className="mt-2 break-all text-[16px] font-bold">{typeof window !== "undefined" ? window.location.host : ""}</div>
     </div>
   );

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Lang } from "@/lib/i18n";
 import { randomInt } from "node:crypto";
 import { db } from "./supabase";
 import { fetchAll } from "./fetch-all";
@@ -53,17 +54,22 @@ export async function lockState(accountId: string): Promise<{ triesLeft: number;
   return { triesLeft: Math.max(0, MAX_TRIES - (data?.pin_attempts ?? 0)), lockedMinutes: null };
 }
 
-export function lockedMessage(minutes: number): string {
+export function lockedMessage(minutes: number, lang: Lang = "mn"): string {
+  if (lang === "en") {
+    return minutes >= 60
+      ? `Too many wrong tries. Try again in ${Math.ceil(minutes / 60)} h`
+      : `Too many wrong tries. Try again in ${minutes} min`;
+  }
   return minutes >= 60
     ? `Олон удаа буруу орууллаа. ${Math.ceil(minutes / 60)} цагийн дараа оролдоно уу`
     : `Олон удаа буруу орууллаа. ${minutes} минутын дараа оролдоно уу`;
 }
 
 /** A wrong PIN: the message to show. */
-export async function wrongPinMessage(accountId: string): Promise<string> {
+export async function wrongPinMessage(accountId: string, lang: Lang = "mn"): Promise<string> {
   const s = await lockState(accountId);
-  if (s.lockedMinutes != null) return lockedMessage(s.lockedMinutes);
-  return `PIN буруу. ${s.triesLeft} оролдлого үлдлээ`;
+  if (s.lockedMinutes != null) return lockedMessage(s.lockedMinutes, lang);
+  return lang === "en" ? `Wrong PIN. ${s.triesLeft} tries left` : `PIN буруу. ${s.triesLeft} оролдлого үлдлээ`;
 }
 
 /** After a correct PIN: clear the counters; re-hash when asked (pepper added). */

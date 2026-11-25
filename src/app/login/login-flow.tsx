@@ -5,6 +5,7 @@ import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { ArrowRight, ChevronLeft, Loader2, X } from "lucide-react";
 import { BottomTabs } from "@/components/bottom-tabs";
 import { InstallApp } from "@/components/install-app";
+import { LangSwitch, useLang } from "@/components/lang";
 import { Logo } from "@/components/logo";
 import { MenuButton } from "@/components/menu-drawer";
 import { PinInput } from "@/components/pin-input";
@@ -35,6 +36,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
   const [pending, start] = useTransition();
+  const { lang, t } = useLang();
 
   function go(next: Step) {
     setError(null);
@@ -50,7 +52,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
 
   function submitPhone(e: FormEvent) {
     e.preventDefault();
-    if (!isValidPhone(phone)) return setError("8 оронтой утасны дугаар оруулна уу");
+    if (!isValidPhone(phone)) return setError(t("8 оронтой утасны дугаар оруулна уу", "Enter an 8-digit phone number"));
     start(async () => {
       const res = await checkPhone(phone);
       if ("error" in res) return setError(res.error);
@@ -67,12 +69,12 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
 
   function submitName(e: FormEvent) {
     e.preventDefault();
-    if (name.trim().length < 2) return setError("Нэрээ оруулна уу");
+    if (name.trim().length < 2) return setError(t("Нэрээ оруулна уу", "Enter your name"));
     go("new-pin");
   }
 
   function chooseNewPin(value: string) {
-    const problem = pinProblem(value, phone);
+    const problem = pinProblem(value, phone, lang);
     if (problem) return fail(problem);
     setNewPin(value);
     go("repeat-pin");
@@ -82,7 +84,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
     if (value !== newPin) {
       setStep("new-pin");
       setNewPin("");
-      return fail("Таарсангүй. Дахин үүсгэнэ үү");
+      return fail(t("Таарсангүй. Дахин үүсгэнэ үү", "PINs didn't match. Please create it again"));
     }
     start(async () => {
       const res = await signUp(phone, name, value, next);
@@ -116,22 +118,23 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <BrandPanel />
+      <BrandPanel shop={t("Дэлгүүр", "Shop")} />
 
       <main className="flex min-h-dvh flex-col px-5 pt-[max(1.75rem,env(safe-area-inset-top))] pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-10 md:pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:px-16">
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2.5 lg:hidden">
             <Logo size={40} />
             <span className="text-[18px] font-extrabold tracking-tight">
-              BDI <span className="font-semibold text-ink-3">Дэлгүүр</span>
+              BDI <span className="font-semibold text-ink-3">{t("Дэлгүүр", "Shop")}</span>
             </span>
           </Link>
+          <LangSwitch className="ml-auto" />
           {/* Phones: the ☰ menu; wider screens: close back to the shop/cart. */}
-          <MenuButton user={null} className="-mr-1 ml-auto" />
+          <MenuButton user={null} className="-mr-1 ml-1.5" />
           <Link
             href={closeHref}
-            aria-label="Хаах"
-            className="ml-auto hidden size-10 place-items-center rounded-full bg-muted text-ink-2 transition-colors hover:bg-muted-strong hover:text-ink md:grid"
+            aria-label={t("Хаах", "Close")}
+            className="ml-2 hidden size-10 place-items-center rounded-full bg-muted text-ink-2 transition-colors hover:bg-muted-strong hover:text-ink md:grid"
           >
             <X className="size-5" />
           </Link>
@@ -140,14 +143,14 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
           {step === "phone" && (
             <form onSubmit={submitPhone} noValidate>
-              <Title>Утасны дугаар</Title>
+              <Title>{t("Утасны дугаар", "Phone number")}</Title>
               <input
                 className="field mt-6 h-14 rounded-2xl text-center text-[22px] font-bold tracking-[0.14em] shadow-card"
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
                 placeholder="8888 8888"
-                aria-label="Утасны дугаар"
+                aria-label={t("Утасны дугаар", "Phone number")}
                 autoFocus
                 value={phone}
                 onChange={(e) => {
@@ -158,7 +161,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
               {errorLine}
               <Button type="submit" variant="primary" size="xl" className="mt-4 w-full" disabled={pending || phone.length !== 8}>
                 {pending ? <Loader2 className="animate-spin" /> : null}
-                Үргэлжлүүлэх
+                {t("Үргэлжлүүлэх", "Continue")}
                 {!pending && <ArrowRight />}
               </Button>
             </form>
@@ -167,25 +170,25 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
           {step === "pin" && (
             <div>
               {back("phone")}
-              <Title>PIN код</Title>
+              <Title>{t("PIN код", "PIN code")}</Title>
               <div className="mt-6">
                 <PinInput value={pin} onChange={setPin} onComplete={submitPin} disabled={pending} autoFocus shake={shake} />
               </div>
               {errorLine}
               {spinner}
-              <p className="mt-10 text-[13px] font-medium text-ink-3">PIN мартсан бол админд хандана уу</p>
+              <p className="mt-10 text-[13px] font-medium text-ink-3">{t("PIN мартсан бол админд хандана уу", "Forgot your PIN? Ask the admin")}</p>
             </div>
           )}
 
           {step === "name" && (
             <form onSubmit={submitName} noValidate>
               {back("phone")}
-              <Title>Таны нэр</Title>
+              <Title>{t("Таны нэр", "Your name")}</Title>
               <input
                 className="field mt-6 h-14 rounded-2xl text-[17px] shadow-card"
                 autoComplete="name"
-                aria-label="Нэр"
-                placeholder="Нэр"
+                aria-label={t("Нэр", "Name")}
+                placeholder={t("Нэр", "Name")}
                 maxLength={60}
                 autoFocus
                 value={name}
@@ -196,7 +199,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
               />
               {errorLine}
               <Button type="submit" variant="primary" size="xl" className="mt-4 w-full" disabled={name.trim().length < 2}>
-                Үргэлжлүүлэх
+                {t("Үргэлжлүүлэх", "Continue")}
                 <ArrowRight />
               </Button>
             </form>
@@ -205,7 +208,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
           {step === "new-pin" && (
             <div>
               {back("name")}
-              <Title>PIN код үүсгэх</Title>
+              <Title>{t("PIN код үүсгэх", "Create a PIN")}</Title>
               <div className="mt-6">
                 <PinInput value={pin} onChange={setPin} onComplete={chooseNewPin} disabled={pending} autoFocus shake={shake} />
               </div>
@@ -216,7 +219,7 @@ export function LoginFlow({ next = "/" }: { next?: string }) {
           {step === "repeat-pin" && (
             <div>
               {back("name")}
-              <Title>PIN кодоо давтана уу</Title>
+              <Title>{t("PIN кодоо давтана уу", "Repeat your PIN")}</Title>
               <div className="mt-6">
                 <PinInput value={pin} onChange={setPin} onComplete={repeatNewPin} disabled={pending} autoFocus shake={shake} />
               </div>
@@ -240,7 +243,7 @@ function Title({ children }: { children: ReactNode }) {
 }
 
 /** Desktop only: dark panel with the brand glow and a large faint wordmark. */
-function BrandPanel() {
+function BrandPanel({ shop }: { shop: string }) {
   return (
     <aside className="relative hidden overflow-hidden bg-ink p-12 text-white lg:flex lg:flex-col">
       <div aria-hidden="true" className="pointer-events-none absolute -top-40 -left-32 size-[520px] rounded-full bg-primary/40 blur-[120px]" />
@@ -255,7 +258,7 @@ function BrandPanel() {
       <div className="relative flex items-center gap-3">
         <Logo size={44} />
         <span className="text-[20px] font-extrabold tracking-tight">
-          BDI <span className="font-semibold text-white/55">Дэлгүүр</span>
+          BDI <span className="font-semibold text-white/55">{shop}</span>
         </span>
       </div>
     </aside>

@@ -4,19 +4,36 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { Check, ChevronRight, Loader2, LogIn, ShoppingCart, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Loader2,
+  LogIn,
+  Package,
+  ShoppingCart,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useLang } from "@/components/lang";
 import { EmptyState, Notice, PageTitle } from "@/components/page-header";
 import { ProductImage } from "@/components/product-image";
 import { useCartPriceSync } from "@/components/use-cart-price-sync";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
-import { cartCount, cartTotal, clearCart, setQty, useCart } from "@/lib/cart";
+import {
+  cartCount,
+  cartTotal,
+  clearCart,
+  packParts,
+  setQty,
+  useCart,
+} from "@/lib/cart";
 import { BRAND_GRADIENT } from "@/lib/brand";
 import { useCheckoutId } from "@/lib/checkout-id";
 import { formatMnt } from "@/lib/format";
 import { dealLabel, freeQty, lineTotal, type Deal } from "@/lib/sale";
 import { loginHref } from "@/lib/next-path";
+import { packText } from "@/lib/pack-text";
 import { useMounted } from "@/lib/use-mounted";
 import { cn } from "@/lib/utils";
 import { placeOrder } from "./actions";
@@ -64,6 +81,7 @@ export function CartView({
 }) {
   const items = useCart();
   const mounted = useMounted();
+  const { t } = useLang();
   useCartPriceSync(prices, packs, deals);
   // Only shown once mounted, so reading the browser's storage here is safe.
   const [note, setNoteState] = useState(readNote);
@@ -88,7 +106,9 @@ export function CartView({
           >
             <Check className="size-8" strokeWidth={3} />
           </span>
-          <p className="mt-4 text-[18px] font-extrabold">Захиалга илгээгдлээ</p>
+          <p className="mt-4 text-[18px] font-extrabold">
+            {t("Захиалга илгээгдлээ", "Order sent")}
+          </p>
           <Loader2 className="mt-3 size-5 animate-spin text-ink-3" />
         </div>
       </div>
@@ -108,13 +128,13 @@ export function CartView({
   if (items.length === 0) {
     return (
       <div className={WRAP}>
-        <PageTitle title="Сагс" />
+        <PageTitle title={t("Сагс", "Cart")} />
         <EmptyState
           icon={<ShoppingCart />}
-          text="Сагс хоосон"
+          text={t("Сагс хоосон", "Your cart is empty")}
           action={
             <Link href="/" className={buttonClass("primary", "lg")}>
-              Дэлгүүр
+              {t("Дэлгүүр", "Shop")}
             </Link>
           }
         />
@@ -146,21 +166,33 @@ export function CartView({
   const pieces = cartCount(items);
   const submit = (className: string) =>
     signedIn ? (
-      <Button variant="primary" size="xl" className={className} disabled={pending || !!closedMessage} onClick={order}>
+      <Button
+        variant="primary"
+        size="xl"
+        className={className}
+        disabled={pending || !!closedMessage}
+        onClick={order}
+      >
         {pending && <Loader2 className="animate-spin" />}
-        Захиалга илгээх
+        {t("Захиалга илгээх", "Send order")}
         {!pending && <ChevronRight />}
       </Button>
     ) : (
-      <Link href={loginHref("/cart")} className={buttonClass("primary", "xl", className)}>
+      <Link
+        href={loginHref("/cart")}
+        className={buttonClass("primary", "xl", className)}
+      >
         <LogIn />
-        Нэвтэрч захиалах
+        {t("Нэвтэрч захиалах", "Sign in to order")}
       </Link>
     );
 
   return (
     <div className={WRAP}>
-      <PageTitle title="Сагс" sub={`${pieces} ширхэг`} />
+      <PageTitle
+        title={t("Сагс", "Cart")}
+        sub={t(`${pieces} ширхэг`, `${pieces} pcs`)}
+      />
       {closedMessage && (
         <div className="mt-4">
           <Notice>{closedMessage}</Notice>
@@ -170,7 +202,10 @@ export function CartView({
       <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8">
         <ul className="space-y-2.5">
           {items.map((it) => (
-            <li key={it.product_id} className="card flex gap-3 p-3 sm:gap-4 sm:p-4">
+            <li
+              key={it.product_id}
+              className="card flex gap-3 p-3 sm:gap-4 sm:p-4"
+            >
               <Link
                 href={`/products/${it.product_id}`}
                 aria-label={it.name}
@@ -179,7 +214,11 @@ export function CartView({
                 <ProductImage
                   src={it.image_url}
                   alt={it.name}
-                  category={it.category_name ? { name: it.category_name, icon: it.category_icon } : null}
+                  category={
+                    it.category_name
+                      ? { name: it.category_name, icon: it.category_icon }
+                      : null
+                  }
                   sizes="96px"
                   small
                 />
@@ -194,7 +233,7 @@ export function CartView({
                   </Link>
                   <button
                     type="button"
-                    aria-label="Хасах"
+                    aria-label={t("Хасах", "Remove")}
                     onClick={() => setQty(it, 0)}
                     className="-mt-1 -mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-ink-3 transition-colors hover:bg-danger-soft hover:text-danger"
                   >
@@ -202,19 +241,37 @@ export function CartView({
                   </button>
                 </div>
                 <div className="mt-0.5 text-[12.5px] font-medium text-ink-3 tabular-nums">
-                  {(it.pack ?? 1) > 1
-                    ? `${it.qty / (it.pack ?? 1)} багц × ${it.pack}ш · 1ш ${formatMnt(it.unit_price)}`
-                    : `${formatMnt(it.unit_price)} × ${it.qty}`}
-                  {it.was_price ? <span className="ml-1.5 line-through">{formatMnt(it.was_price)}</span> : null}
+                  {formatMnt(it.unit_price)} × {it.qty}
+                  {it.was_price ? (
+                    <span className="ml-1.5 line-through">
+                      {formatMnt(it.was_price)}
+                    </span>
+                  ) : null}
+                  {(it.pack ?? 1) > 1 &&
+                    packParts(it.qty, it.pack).packs > 0 && (
+                      <span className="ml-1.5 font-semibold text-info">
+                        = {packText(packParts(it.qty, it.pack), t)}
+                      </span>
+                    )}
                 </div>
                 {it.deal && (
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] font-semibold">
-                    <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">{dealLabel(it.deal)}</span>
+                    <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">
+                      {dealLabel(it.deal)}
+                    </span>
                     {freeQty(it.qty, it.deal) > 0 ? (
-                      <span className="text-primary-ink">{freeQty(it.qty, it.deal)} ширхэг үнэгүй</span>
+                      <span className="text-primary-ink">
+                        {t(
+                          `${freeQty(it.qty, it.deal)} ширхэг үнэгүй`,
+                          `${freeQty(it.qty, it.deal)} free`,
+                        )}
+                      </span>
                     ) : (
                       <span className="text-ink-3">
-                        {it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} нэмбэл {it.deal.free} үнэгүй
+                        {t(
+                          `${it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} нэмбэл ${it.deal.free} үнэгүй`,
+                          `Add ${it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} more, get ${it.deal.free} free`,
+                        )}
                       </span>
                     )}
                   </div>
@@ -222,14 +279,31 @@ export function CartView({
                 <div className="mt-auto flex items-center gap-3 pt-2">
                   <Stepper
                     qty={it.qty}
-                    step={it.pack}
                     onChange={(n) => setQty(it, n)}
                     tone="outline"
                     size="sm"
                     keepOne
                     className="w-28"
-                    label={`${it.name}: тоо`}
+                    label={t(`${it.name}: тоо`, `${it.name}: quantity`)}
                   />
+                  {(it.pack ?? 1) > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setQty(it, it.qty + (it.pack ?? 1))}
+                      title={t(
+                        `Нэг багц (${it.pack}ш) нэмэх`,
+                        `Add a pack (${it.pack} pcs)`,
+                      )}
+                      aria-label={t(
+                        `Нэг багц (${it.pack}ш) нэмэх`,
+                        `Add a pack (${it.pack} pcs)`,
+                      )}
+                      className="flex h-9 items-center gap-1 rounded-xl bg-info-soft px-2.5 text-[12.5px] font-bold text-info transition-colors hover:bg-info hover:text-white"
+                    >
+                      <Package className="size-3.5" strokeWidth={2.4} />+
+                      {it.pack}
+                    </button>
+                  )}
                   <span className="ml-auto text-[16px] font-extrabold tracking-tight tabular-nums">
                     {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}
                   </span>
@@ -242,27 +316,34 @@ export function CartView({
         <aside className="lg:sticky lg:top-[calc(4rem+2rem)]">
           <div className="card p-4 sm:p-5">
             <label htmlFor="note" className="label">
-              Тэмдэглэл
+              {t("Тэмдэглэл", "Note")}
             </label>
             <textarea
               id="note"
               className="field"
               rows={3}
               maxLength={500}
-              placeholder="Заавал биш"
+              placeholder={t("Заавал биш", "Optional")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
             <div className="mt-5 space-y-2 border-t border-line pt-4">
               <div className="flex items-baseline justify-between text-[13px] font-medium text-ink-3">
-                <span>Бараа</span>
+                <span>{t("Бараа", "Items")}</span>
                 <span className="tabular-nums">
-                  {items.length} төрөл · {pieces} ширхэг
+                  {t(
+                    `${items.length} төрөл · ${pieces} ширхэг`,
+                    `${items.length} ${items.length === 1 ? "product" : "products"} · ${pieces} pcs`,
+                  )}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="text-[14px] font-semibold">Нийт</span>
-                <span className="text-[26px] font-extrabold tracking-tight tabular-nums">{formatMnt(total)}</span>
+                <span className="text-[14px] font-semibold">
+                  {t("Нийт", "Total")}
+                </span>
+                <span className="text-[26px] font-extrabold tracking-tight tabular-nums">
+                  {formatMnt(total)}
+                </span>
               </div>
             </div>
             {submit("mt-4 hidden w-full lg:flex")}
@@ -279,8 +360,12 @@ export function CartView({
       >
         <div className="mx-auto flex max-w-2xl items-center gap-4">
           <div className="leading-tight">
-            <div className="text-[11.5px] font-semibold text-ink-3">Нийт</div>
-            <div className="text-[19px] font-extrabold tracking-tight tabular-nums">{formatMnt(total)}</div>
+            <div className="text-[11.5px] font-semibold text-ink-3">
+              {t("Нийт", "Total")}
+            </div>
+            <div className="text-[19px] font-extrabold tracking-tight tabular-nums">
+              {formatMnt(total)}
+            </div>
           </div>
           {submit("flex-1")}
         </div>

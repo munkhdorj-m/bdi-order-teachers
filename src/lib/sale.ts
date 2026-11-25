@@ -1,3 +1,5 @@
+import type { Lang } from "@/lib/i18n";
+
 /** «2+1»: take buy + free pieces, pay for `buy`. */
 export type Deal = { buy: number; free: number };
 
@@ -22,7 +24,9 @@ export function dealLabel(deal: Deal): string {
   return `${deal.buy}+${deal.free}`;
 }
 
-/** Plain explanation: «3 авбал 1 нь үнэгүй». */
-export function dealText(deal: Deal): string {
-  return `${deal.buy + deal.free} авбал ${deal.free} нь үнэгүй`;
+/** Plain explanation: «3 авбал 1 нь үнэгүй» / "Buy 3, get 1 free". */
+export function dealText(deal: Deal, lang: Lang = "mn"): string {
+  return lang === "en"
+    ? `Buy ${deal.buy + deal.free}, get ${deal.free} free`
+    : `${deal.buy + deal.free} авбал ${deal.free} нь үнэгүй`;
 }

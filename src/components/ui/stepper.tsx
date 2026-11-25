@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { useLang } from "@/components/lang";
 import { MAX_QTY } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ export function Stepper({
   onChange,
   tone = "solid",
   size = "md",
-  label = "Тоо ширхэг",
+  label,
   keepOne = false,
   step = 1,
   className,
@@ -32,6 +33,7 @@ export function Stepper({
   step?: number;
   className?: string;
 }) {
+  const { t } = useLang();
   const unit = step > 1 ? step : 1;
   const shown = Math.round(qty / unit);
   // Typing draft, committed on blur / Enter; follows the cart otherwise.
@@ -82,7 +84,11 @@ export function Stepper({
     >
       <button
         type="button"
-        aria-label={shown <= 1 && !keepOne ? "Хасах" : "Багасгах"}
+        aria-label={
+          shown <= 1 && !keepOne
+            ? t("Хасах", "Remove")
+            : t("Багасгах", "Decrease")
+        }
         disabled={keepOne && shown <= 1}
         onClick={(e) => {
           stop(e);
@@ -104,7 +110,7 @@ export function Stepper({
           value={draft}
           size={1}
           maxLength={3}
-          aria-label={label}
+          aria-label={label ?? t("Тоо ширхэг", "Quantity")}
           onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
           onFocus={(e) => e.target.select()}
           onClick={stop}
@@ -129,13 +135,13 @@ export function Stepper({
         />
         {unit > 1 && (
           <span className="pointer-events-none text-[10px] font-semibold leading-none opacity-70">
-            багц
+            {t("багц", "pack")}
           </span>
         )}
       </div>
       <button
         type="button"
-        aria-label="Нэмэх"
+        aria-label={t("Нэмэх", "Increase")}
         disabled={(shown + 1) * unit > MAX_QTY}
         onClick={(e) => {
           stop(e);

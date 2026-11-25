@@ -2,12 +2,15 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Check, Package } from "lucide-react";
 import { ProductImage } from "@/components/product-image";
+import { categoryName } from "@/lib/category-name";
 import { CategoryIconTile, categoryVisual } from "@/lib/category-visual";
 import { describe } from "@/lib/describe";
 import { formatMnt } from "@/lib/format";
+import { unitLabel } from "@/lib/i18n";
 import { dealLabel, dealText } from "@/lib/sale";
 import { dayLabel } from "@/lib/ub-date";
 import { getProduct } from "@/lib/server/catalog";
+import { getLang } from "@/lib/server/lang";
 import { getSettings } from "@/lib/server/settings";
 import { cn } from "@/lib/utils";
 import { ProductBuy } from "./product-buy";
@@ -17,28 +20,61 @@ import { ProductBuy } from "./product-buy";
  * description is laid out to scan: what it is, its features as a checklist,
  * and a details table. Open to everyone; signing in is only needed to order.
  */
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const [p, settings] = await Promise.all([getProduct(id), getSettings()]);
+  const [p, settings, lang] = await Promise.all([
+    getProduct(id),
+    getSettings(),
+    getLang(),
+  ]);
   if (!p) notFound();
+  const t = (mn: string, en: string) => (lang === "en" ? en : mn);
+  const pcs = t("ш", " pcs");
 
   const visual = categoryVisual(p.category);
   const low = !p.sold_out && !p.stockForced && p.stock < 10;
   const stock = p.sold_out
-    ? { label: "Дууссан", cls: "bg-danger-soft text-danger" }
+    ? { label: t("Дууссан", "Sold out"), cls: "bg-danger-soft text-danger" }
     : low
-      ? { label: `Цөөн үлдсэн · ${p.stock}`, cls: "bg-warn-soft text-warn" }
-      : { label: "Бэлэн", cls: "bg-primary-soft text-primary-ink" };
+      ? {
+          label: t(`Цөөн үлдсэн · ${p.stock}`, `Only ${p.stock} left`),
+          cls: "bg-warn-soft text-warn",
+        }
+      : {
+          label: t("Бэлэн", "In stock"),
+          cls: "bg-primary-soft text-primary-ink",
+        };
   const d = describe(p.description);
 
   const details: { label: string; value: string | null }[] = [
-    { label: "Брэнд", value: p.brand },
-    { label: "Ангилал", value: p.category?.name ?? null },
-    { label: "Нэгж", value: p.unit ? `1 ${p.unit}` : null },
-    { label: "Багцад", value: p.packSize ? `${p.packSize} ш` : null },
-    { label: "Хайрцагт", value: p.boxCount ? `${p.boxCount} ш` : null },
-    { label: "Код", value: p.sku },
-    { label: "Үлдэгдэл", value: stock.label },
+    { label: t("Брэнд", "Brand"), value: p.brand },
+    {
+      label: t("Ангилал", "Category"),
+      value: p.category ? categoryName(p.category, lang) : null,
+    },
+    {
+      label: t("Нэгж", "Unit"),
+      value: p.unit ? `1 ${unitLabel(p.unit, lang)}` : null,
+    },
+    {
+      label: t("Багцад", "In a pack"),
+      value:
+        p.pack > 1
+          ? `${p.pack}${pcs}`
+          : p.packSize
+            ? `${p.packSize}${pcs}`
+            : null,
+    },
+    {
+      label: t("Хайрцагт", "In a box"),
+      value: p.boxCount ? `${p.boxCount}${pcs}` : null,
+    },
+    { label: t("Код", "Code"), value: p.sku },
+    { label: t("Үлдэгдэл", "Stock"), value: stock.label },
   ];
 
   return (
@@ -66,11 +102,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               )}
             >
               <CategoryIconTile visual={visual} size="xs" />
-              {p.category.name}
+              {categoryName(p.category, lang)}
             </span>
           )}
-          {p.brand && <div className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-primary">{p.brand}</div>}
-          <h1 className="mt-1 text-[22px] font-extrabold leading-tight md:text-[30px]">{p.name}</h1>
+          {p.brand && (
+            <div className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-primary">
+              {p.brand}
+            </div>
+          )}
+          <h1 className="mt-1 text-[22px] font-extrabold leading-tight md:text-[30px]">
+            {p.name}
+          </h1>
 
           <div className="mt-3 flex items-baseline gap-1.5">
             <span
@@ -79,18 +121,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 p.was_price && "text-danger",
               )}
             >
-              {formatMnt(p.price * p.pack)}
+              {formatMnt(p.price)}
             </span>
             {p.was_price && (
               <span className="text-[16px] font-semibold text-ink-3 line-through tabular-nums">
-                {formatMnt(p.was_price * p.pack)}
+                {formatMnt(p.was_price)}
               </span>
             )}
-            {p.pack > 1 ? (
-              <span className="text-[14px] font-semibold text-ink-3">/ багц ({p.pack}ш)</span>
-            ) : (
-              p.unit && <span className="text-[14px] font-medium text-ink-3">/ {p.unit}</span>
-            )}
+            <span className="text-[14px] font-medium text-ink-3">
+              / {unitLabel(p.unit || "ш", lang)}
+            </span>
           </div>
 
           {p.pack > 1 && (
@@ -99,8 +139,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 <Package className="size-5" />
               </span>
               <div className="min-w-0 text-[13.5px] font-medium text-ink-2">
-                <div className="text-[14.5px] font-bold text-ink">Багцаар зарна: 1 багц = {p.pack} ширхэг</div>
-                1 ширхэг {formatMnt(p.price)} · {p.pack}, {p.pack * 2}, {p.pack * 3}… ширхэгээр захиална
+                <div className="text-[14.5px] font-bold text-ink">
+                  {t(
+                    `Багцаар ч авч болно: 1 багц = ${p.pack} ширхэг`,
+                    `Also sold as a pack: 1 pack = ${p.pack} pcs`,
+                  )}
+                </div>
+                {t("1 багц", "1 pack")} {formatMnt(p.price * p.pack)} ·{" "}
+                {t(
+                  "Ширхэгээр ч, багцаар ч захиална",
+                  "Order single pieces or whole packs",
+                )}
               </div>
             </div>
           )}
@@ -112,11 +161,26 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </span>
               <div className="min-w-0 text-[13.5px] font-semibold text-danger">
                 <div>
-                  {[p.sale_percent ? `${p.sale_percent}% хямдарсан` : null, p.deal ? dealText(p.deal) : null]
+                  {[
+                    p.sale_percent
+                      ? t(
+                          `${p.sale_percent}% хямдарсан`,
+                          `${p.sale_percent}% off`,
+                        )
+                      : null,
+                    p.deal ? dealText(p.deal, lang) : null,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                {p.sale_until && <div className="text-[12px] font-medium opacity-80">{dayLabel(p.sale_until)} хүртэл</div>}
+                {p.sale_until && (
+                  <div className="text-[12px] font-medium opacity-80">
+                    {t(
+                      `${dayLabel(p.sale_until, lang)} хүртэл`,
+                      `Until ${dayLabel(p.sale_until, lang)}`,
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -128,7 +192,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 {x}
               </Tag>
             ))}
-            {p.boxCount && <Tag className="bg-muted text-ink-2">Хайрцагт {p.boxCount} ш</Tag>}
+            {p.boxCount && (
+              <Tag className="bg-muted text-ink-2">
+                {t(`Хайрцагт ${p.boxCount} ш`, `${p.boxCount} pcs per box`)}
+              </Tag>
+            )}
           </div>
 
           <ProductBuy
@@ -147,11 +215,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             closed={!settings.open}
           />
 
-          {d.summary && <p className="mt-8 text-[15.5px] leading-relaxed text-ink-2">{d.summary}</p>}
+          {d.summary && (
+            <p className="mt-8 text-[15.5px] leading-relaxed text-ink-2">
+              {d.summary}
+            </p>
+          )}
 
           {d.features.length > 0 && (
             <section className="mt-6">
-              <h2 className="eyebrow">Онцлог</h2>
+              <h2 className="eyebrow">{t("Онцлог", "Features")}</h2>
               <ul className="mt-3 space-y-3">
                 {d.features.map((f, i) => (
                   <li key={i} className="flex gap-3">
@@ -166,14 +238,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           )}
 
           <section className="mt-8">
-            <h2 className="eyebrow">Дэлгэрэнгүй</h2>
+            <h2 className="eyebrow">{t("Дэлгэрэнгүй", "Details")}</h2>
             <dl className="mt-3 divide-y divide-line overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
               {details
                 .filter((r): r is { label: string; value: string } => !!r.value)
                 .map((r) => (
-                  <div key={r.label} className="flex items-center justify-between gap-4 px-4 py-2.5 text-[14px]">
+                  <div
+                    key={r.label}
+                    className="flex items-center justify-between gap-4 px-4 py-2.5 text-[14px]"
+                  >
                     <dt className="font-medium text-ink-3">{r.label}</dt>
-                    <dd className="min-w-0 truncate text-right font-semibold tabular-nums">{r.value}</dd>
+                    <dd className="min-w-0 truncate text-right font-semibold tabular-nums">
+                      {r.value}
+                    </dd>
                   </div>
                 ))}
             </dl>
@@ -184,8 +261,21 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   );
 }
 
-function Tag({ className, children }: { className?: string; children: ReactNode }) {
+function Tag({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <span className={cn("inline-flex h-7 items-center rounded-full px-3 text-[12.5px] font-bold", className)}>{children}</span>
+    <span
+      className={cn(
+        "inline-flex h-7 items-center rounded-full px-3 text-[12.5px] font-bold",
+        className,
+      )}
+    >
+      {children}
+    </span>
   );
 }

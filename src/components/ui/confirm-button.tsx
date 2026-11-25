@@ -2,13 +2,14 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { useLang } from "@/components/lang";
 import { Button, type ButtonSize, type ButtonVariant } from "./button";
 import { Sheet } from "./sheet";
 
 /** A button that asks "sure?" before running `onConfirm`. */
 export function ConfirmButton({
   question,
-  confirmLabel = "Тийм",
+  confirmLabel,
   danger = false,
   variant = "secondary",
   size = "md",
@@ -27,6 +28,7 @@ export function ConfirmButton({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
+  const { t } = useLang();
   return (
     <>
       <Button variant={variant} size={size} className={className} disabled={pending} onClick={() => setOpen(true)}>
@@ -35,7 +37,7 @@ export function ConfirmButton({
       <Sheet open={open} onOpenChange={(v) => !pending && setOpen(v)} title={question}>
         <div className="grid grid-cols-2 gap-3">
           <Button variant="secondary" size="lg" disabled={pending} onClick={() => setOpen(false)}>
-            Үгүй
+            {t("Үгүй", "No")}
           </Button>
           <Button
             variant={danger ? "danger" : "primary"}
@@ -49,7 +51,7 @@ export function ConfirmButton({
             }
           >
             {pending && <Loader2 className="animate-spin" />}
-            {confirmLabel}
+            {confirmLabel ?? t("Тийм", "Yes")}
           </Button>
         </div>
       </Sheet>

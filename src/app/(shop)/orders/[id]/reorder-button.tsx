@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useLang } from "@/components/lang";
 import { Button } from "@/components/ui/button";
 import { addToCart } from "@/lib/cart";
 
@@ -22,6 +23,7 @@ export type ReorderLine = {
  */
 export function ReorderButton({ lines, className }: { lines: ReorderLine[]; className?: string }) {
   const router = useRouter();
+  const { t } = useLang();
   const [pending, start] = useTransition();
   const usable = lines.filter((l): l is ReorderLine & { product_id: string } => !!l.product_id && l.unit_price > 0);
 
@@ -46,13 +48,13 @@ export function ReorderButton({ lines, className }: { lines: ReorderLine[]; clas
               l.qty,
             );
           }
-          toast.success(`${usable.length} бараа сагсанд орлоо`);
+          toast.success(t(`${usable.length} бараа сагсанд орлоо`, `${usable.length} items added to cart`));
           router.push("/cart");
         })
       }
     >
       {pending ? <Loader2 className="animate-spin" /> : <RotateCcw />}
-      Дахин захиалах
+      {t("Дахин захиалах", "Order again")}
     </Button>
   );
 }

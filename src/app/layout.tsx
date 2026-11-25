@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { Toaster } from "sonner";
 import { AppSetup } from "@/components/app-setup";
+import { LangProvider } from "@/components/lang";
+import { getLang } from "@/lib/server/lang";
 import { APP_NAME, COLORS } from "@/lib/brand";
 import "./globals.css";
 
@@ -27,10 +29,12 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const lang = await getLang();
   return (
-    <html lang="mn" className={`${manrope.variable} antialiased`}>
+    <html lang={lang} className={`${manrope.variable} antialiased`}>
       <body className="min-h-dvh">
+        <LangProvider lang={lang}>
         {children}
         <Toaster
           position="top-center"
@@ -47,6 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           }}
         />
         <AppSetup />
+        </LangProvider>
       </body>
     </html>
   );

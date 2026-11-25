@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLang } from "@/components/lang";
 import { cn } from "@/lib/utils";
 
 /** Bottom sheet on phones, a centred dialog on wider screens. */
@@ -19,6 +20,7 @@ export function Sheet({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const { t } = useLang();
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -38,7 +40,7 @@ export function Sheet({
           <div className="mb-4 flex items-start justify-between gap-3">
             <Dialog.Title className="pt-1 text-[18px] font-bold leading-snug">{title}</Dialog.Title>
             <Dialog.Close
-              aria-label="Хаах"
+              aria-label={t("Хаах", "Close")}
               className="-mr-1 grid size-9 shrink-0 place-items-center rounded-full bg-muted text-ink-2 transition-colors hover:bg-muted-strong hover:text-ink"
             >
               <X className="size-[18px]" strokeWidth={2.2} />

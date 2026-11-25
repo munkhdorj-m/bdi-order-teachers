@@ -6,6 +6,9 @@ import { buttonClass } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatDateTime, formatMnt } from "@/lib/format";
 import { STATUS_STEPS } from "@/lib/order-status";
+import type { Lang, T } from "@/lib/i18n";
+import { getLang } from "@/lib/server/lang";
+import { makeT } from "@/lib/i18n";
 import { listMyOrders, type Order } from "@/lib/server/orders";
 import { requireTeacher } from "@/lib/server/session";
 import { cn } from "@/lib/utils";
@@ -17,29 +20,30 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const me = await requireTeacher("/orders");
   const sp = await searchParams;
   const filter: Filter = sp.s === "paid" || sp.s === "all" ? sp.s : "new";
-  const all = await listMyOrders(me.id);
+  const [all, lang] = await Promise.all([listMyOrders(me.id), getLang()]);
+  const t = makeT(lang);
   const unpaid = all.filter((o) => o.status === "new");
   const rows = filter === "new" ? unpaid : filter === "paid" ? all.filter((o) => o.status === "paid") : all;
 
   const tabs: { key: Filter; label: string; badge?: number }[] = [
-    { key: "new", label: "Төлөөгүй", badge: unpaid.length || undefined },
-    { key: "paid", label: "Төлсөн" },
-    { key: "all", label: "Бүгд" },
+    { key: "new", label: t("Төлөөгүй", "Unpaid"), badge: unpaid.length || undefined },
+    { key: "paid", label: t("Төлсөн", "Paid") },
+    { key: "all", label: t("Бүгд", "All") },
   ];
 
   return (
     <div className="mx-auto max-w-6xl px-3 pt-4 sm:px-6 lg:px-8 lg:pt-8">
-      <PageTitle title="Захиалга" />
+      <PageTitle title={t("Захиалга", "Orders")} />
       <div className="mt-4 flex flex-wrap gap-2">
-        {tabs.map((t) => (
+        {tabs.map((tab) => (
           <Link
-            key={t.key}
-            href={t.key === "new" ? "/orders" : `/orders?s=${t.key}`}
+            key={tab.key}
+            href={tab.key === "new" ? "/orders" : `/orders?s=${tab.key}`}
             className="chip"
-            data-active={t.key === filter ? "" : undefined}
+            data-active={tab.key === filter ? "" : undefined}
           >
-            {t.label}
-            {t.badge != null && <span className="tabular-nums opacity-70">{t.badge}</span>}
+            {tab.label}
+            {tab.badge != null && <span className="tabular-nums opacity-70">{tab.badge}</span>}
           </Link>
         ))}
       </div>
@@ -47,17 +51,17 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       {rows.length === 0 ? (
         <EmptyState
           icon={<ClipboardList />}
-          text="Захиалга алга"
+          text={t("Захиалга алга", "No orders yet")}
           action={
             <Link href="/" className={buttonClass("primary", "lg")}>
-              Дэлгүүр
+              {t("Дэлгүүр", "Shop")}
             </Link>
           }
         />
       ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((o) => (
-            <OrderCard key={o.id} o={o} />
+            <OrderCard key={o.id} o={o} lang={lang} t={t} />
           ))}
         </div>
       )}
@@ -65,7 +69,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   );
 }
 
-function OrderCard({ o }: { o: Order }) {
+function OrderCard({ o, lang, t }: { o: Order; lang: Lang; t: T }) {
   const pieces = o.items.reduce((s, i) => s + i.qty, 0);
   const step = o.status === "cancelled" ? -1 : STATUS_STEPS.indexOf(o.status);
   const thumbs = o.items.slice(0, 4);
@@ -73,7 +77,7 @@ function OrderCard({ o }: { o: Order }) {
     <Link href={`/orders/${o.id}`} className="card group block p-4 transition-shadow hover:shadow-lift">
       <div className="flex items-center gap-2">
         <span className="text-[16px] font-extrabold tracking-tight">{o.order_number}</span>
-        <StatusChip status={o.status} long className="ml-auto" />
+        <StatusChip status={o.status} long lang={lang} className="ml-auto" />
       </div>
 
       <div className="mt-3 flex items-center gap-3">
@@ -91,7 +95,9 @@ function OrderCard({ o }: { o: Order }) {
         </div>
         <div className="min-w-0 flex-1 text-[12px] font-medium text-ink-3">
           <div className="tabular-nums">{formatDateTime(o.created_at)}</div>
-          <div>{pieces} ширхэг</div>
+          <div>
+            {pieces} {t("ширхэг", "pcs")}
+          </div>
         </div>
         <span className="text-[16px] font-extrabold tracking-tight tabular-nums">{formatMnt(o.total)}</span>
         <ChevronRight className="size-4 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5" />

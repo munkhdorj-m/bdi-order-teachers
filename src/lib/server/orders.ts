@@ -1,4 +1,5 @@
 import "server-only";
+import { makeT, type Lang } from "@/lib/i18n";
 import { db } from "./supabase";
 import { fetchAll } from "./fetch-all";
 import { getProductStates } from "./catalog";
@@ -40,6 +41,7 @@ export type Order = {
 export type AdminOrder = Order & { account: { id: string; full_name: string; phone: string } };
 
 const GENERIC = "Алдаа гарлаа. Дахин оролдоно уу";
+const GENERIC_EN = "Something went wrong. Please try again";
 
 const ORDER_COLS =
   "id, order_number, status, total, note, created_at, paid_at, cancelled_at, " +
@@ -115,25 +117,25 @@ function parseItems(v: unknown): { product_id: string; qty: number }[] | null {
 export async function placeOrder(
   accountId: string,
   input: { requestId: unknown; items: unknown; note: unknown },
+  lang: Lang = "mn",
 ): Promise<PlaceResult> {
-  if (!isUuid(input.requestId)) return { ok: false, error: GENERIC };
+  const t = makeT(lang);
+  const generic = t(GENERIC, GENERIC_EN);
+  const closed = (msg: string) => msg || t(CLOSED_DEFAULT, "Ordering is closed for now");
+  const soldOut = t("Зарим бараа дууссан байна", "Some items are sold out");
+  if (!isUuid(input.requestId)) return { ok: false, error: generic };
   const items = parseItems(input.items);
-  if (!items) return { ok: false, error: "Сагс хоосон байна" };
+  if (!items) return { ok: false, error: t("Сагс хоосон байна", "Your cart is empty") };
   const note = typeof input.note === "string" ? input.note.trim().slice(0, 500) : "";
 
   const settings = await getSettings();
-  if (!settings.open) return { ok: false, error: settings.closed_message || CLOSED_DEFAULT };
+  if (!settings.open) return { ok: false, error: closed(settings.closed_message) };
 
   const states = await getProductStates(items.map((i) => i.product_id));
   const blocked = items.filter((i) => !states.get(i.product_id)?.orderable);
   if (blocked.length > 0) {
     const names = blocked.map((i) => states.get(i.product_id)?.name).filter(Boolean);
-    return { ok: false, error: names.length ? `Дууссан: ${names.join(", ")}` : "Зарим бараа дууссан байна" };
-  }
-  const offPack = items.find((i) => i.qty % (states.get(i.product_id)?.pack ?? 1) !== 0);
-  if (offPack) {
-    const st = states.get(offPack.product_id)!;
-    return { ok: false, error: `«${st.name}» ${st.pack} ширхэгийн багцаар захиална` };
+    return { ok: false, error: names.length ? `${t("Дууссан", "Sold out")}: ${names.join(", ")}` : soldOut };
   }
 
   const { data, error } = await db().rpc("teacher_place_order", {
@@ -143,13 +145,13 @@ export async function placeOrder(
     p_note: note,
   });
   if (error) {
-    if (error.message.includes("shop_closed")) return { ok: false, error: settings.closed_message || CLOSED_DEFAULT };
-    if (error.message.includes("items_unavailable")) return { ok: false, error: "Зарим бараа дууссан байна" };
+    if (error.message.includes("shop_closed")) return { ok: false, error: closed(settings.closed_message) };
+    if (error.message.includes("items_unavailable")) return { ok: false, error: soldOut };
     console.error("teacher_place_order failed:", error.message);
-    return { ok: false, error: GENERIC };
+    return { ok: false, error: generic };
   }
   const row = (data as { order_id: string; order_number: string; duplicate: boolean }[] | null)?.[0];
-  if (!row) return { ok: false, error: GENERIC };
+  if (!row) return { ok: false, error: generic };
   return { ok: true, orderId: row.order_id, duplicate: row.duplicate };
 }
 
@@ -157,8 +159,10 @@ export async function placeOrder(
 export async function cancelMyOrder(
   accountId: string,
   orderId: string,
+  lang: Lang = "mn",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isUuid(orderId)) return { ok: false, error: "Захиалга олдсонгүй" };
+  const t = makeT(lang);
+  if (!isUuid(orderId)) return { ok: false, error: t("Захиалга олдсонгүй", "Order not found") };
   const { data, error } = await db()
     .from("teacher_orders")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
@@ -166,8 +170,8 @@ export async function cancelMyOrder(
     .eq("account_id", accountId)
     .eq("status", "new")
     .select("id");
-  if (error) return { ok: false, error: GENERIC };
-  if (!data?.length) return { ok: false, error: "Төлсөн захиалгыг цуцлах боломжгүй" };
+  if (error) return { ok: false, error: t(GENERIC, GENERIC_EN) };
+  if (!data?.length) return { ok: false, error: t("Төлсөн захиалгыг цуцлах боломжгүй", "A paid order can't be cancelled") };
   return { ok: true };
 }
 
