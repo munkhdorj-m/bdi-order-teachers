@@ -8,6 +8,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
 import { cartCount, cartTotal, setQty, useCart } from "@/lib/cart";
 import { formatMnt } from "@/lib/format";
+import { lineTotal } from "@/lib/sale";
 import { useMounted } from "@/lib/use-mounted";
 
 /**
@@ -98,7 +99,7 @@ export function CartPanel() {
                       className="w-[6.5rem]"
                       label={`${it.name}: тоо`}
                     />
-                    <span className="ml-auto text-[13px] font-bold tabular-nums">{formatMnt(it.qty * it.unit_price)}</span>
+                    <span className="ml-auto text-[13px] font-bold tabular-nums">{formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}</span>
                   </div>
                 </div>
               </li>

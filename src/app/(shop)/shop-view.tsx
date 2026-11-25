@@ -14,6 +14,7 @@ import { setQty, useCart } from "@/lib/cart";
 import { CategoryIconTile, USUAL_PRODUCTS_VISUAL, categoryVisual } from "@/lib/category-visual";
 import { FOCUS_SEARCH_EVENT } from "@/lib/events";
 import { formatMnt } from "@/lib/format";
+import { dealLabel } from "@/lib/sale";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
 import type { Category, Product } from "@/lib/server/catalog";
@@ -58,7 +59,9 @@ export function ShopView({
     }
     const byId = new Map(products.map((p) => [p.id, p]));
     const usual = usualIds.map((id) => byId.get(id)).filter((p): p is Product => !!p);
+    const onSale = products.filter((p) => !p.sold_out && (p.sale_percent || p.deal));
     return [
+      ...(onSale.length > 0 ? [{ id: "sale", name: "Хямдралтай", icon: "gift", items: onSale }] : []),
       ...(usual.length > 0 ? [{ id: "usual", name: "Өмнө авсан", icon: null, usual: true, items: usual }] : []),
       ...categories
         .filter((c) => groups.has(c.id))
@@ -165,7 +168,7 @@ export function ShopView({
                       </h2>
                       <span className="text-[12px] font-semibold text-ink-3 tabular-nums">{s.items.length}</span>
                     </header>
-                    <ProductGrid>{s.items.map((p) => card(p, `${s.id}:${p.id}`, !!s.usual))}</ProductGrid>
+                    <ProductGrid>{s.items.map((p) => card(p, `${s.id}:${p.id}`, !!s.usual || s.id === "sale"))}</ProductGrid>
                   </section>
                 );
               })}
@@ -269,6 +272,8 @@ function ProductCard({
     category_icon: category?.icon ?? null,
     unit_price: product.price,
     pack: product.pack,
+    deal: product.deal,
+    was_price: product.was_price,
   };
   const byPack = product.pack > 1;
 
@@ -288,6 +293,20 @@ function ProductCard({
             dim={product.sold_out}
             className="transition-transform duration-500 ease-out md:group-hover:scale-[1.04]"
           />
+          {(product.sale_percent || product.deal) && (
+            <span className="absolute top-2 left-2 z-[1] flex flex-col items-start gap-1">
+              {product.sale_percent && (
+                <span className="rounded-full bg-danger px-2 py-0.5 text-[11.5px] font-extrabold text-white shadow-sm">
+                  −{product.sale_percent}%
+                </span>
+              )}
+              {product.deal && (
+                <span className="rounded-full bg-danger px-2 py-0.5 text-[11.5px] font-extrabold text-white shadow-sm">
+                  {dealLabel(product.deal)}
+                </span>
+              )}
+            </span>
+          )}
           {qty > 0 && (
             <span
               key={qty}
@@ -310,10 +329,15 @@ function ProductCard({
             <span className="truncate text-[10.5px] font-bold uppercase tracking-[0.08em] text-primary">{product.brand}</span>
           )}
           <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-semibold leading-[1.25]">{product.name}</h3>
-          <div className="mt-auto flex items-baseline gap-1 pt-0.5">
-            <span className="text-[16px] font-extrabold tracking-tight tabular-nums">
+          <div className="mt-auto flex flex-wrap items-baseline gap-x-1 pt-0.5">
+            <span className={cn("text-[16px] font-extrabold tracking-tight tabular-nums", product.was_price && "text-danger")}>
               {formatMnt(product.price * product.pack)}
             </span>
+            {product.was_price && (
+              <span className="text-[11.5px] font-medium text-ink-3 line-through tabular-nums">
+                {formatMnt(product.was_price * product.pack)}
+              </span>
+            )}
             {byPack ? (
               <span className="text-[11.5px] font-medium text-ink-3">/багц · {product.pack}ш</span>
             ) : (

@@ -17,6 +17,11 @@ export type ProductSetting = {
   soldOut: boolean | null;
   /** Sold only in packs of this many pieces (null = by the piece). */
   pack: number | null;
+  /** Sale (sql/08): «-20%» and/or «2+1», until a day (null = no end). */
+  salePercent: number | null;
+  saleBuy: number | null;
+  saleFree: number | null;
+  saleUntil: string | null;
 };
 
 type Row = {
@@ -27,6 +32,10 @@ type Row = {
   description: string | null;
   sold_out?: boolean | null;
   pack?: number | null;
+  sale_percent?: number | null;
+  sale_buy?: number | null;
+  sale_free?: number | null;
+  sale_until?: string | null;
 };
 
 /** The table isn't there yet (sql/04 not run): the shop works as before. */
@@ -45,15 +54,25 @@ async function hasColumn(col: string): Promise<boolean> {
  * mean fewer settings, never an error.
  */
 export const getProductSettings = cache(
-  async (): Promise<{ map: Map<string, ProductSetting>; ready: boolean; soldOutReady: boolean; packReady: boolean }> => {
+  async (): Promise<{
+    map: Map<string, ProductSetting>;
+    ready: boolean;
+    soldOutReady: boolean;
+    packReady: boolean;
+    saleReady: boolean;
+  }> => {
     const { data, error } = await db().from("teacher_products").select("*");
     if (error) {
       if (missingTable(error) || /schema cache|does not exist/i.test(error.message ?? "")) {
-        return { map: new Map(), ready: false, soldOutReady: false, packReady: false };
+        return { map: new Map(), ready: false, soldOutReady: false, packReady: false, saleReady: false };
       }
       throw new Error(error.message);
     }
-    const [soldOutReady, packReady] = await Promise.all([hasColumn("sold_out"), hasColumn("pack")]);
+    const [soldOutReady, packReady, saleReady] = await Promise.all([
+      hasColumn("sold_out"),
+      hasColumn("pack"),
+      hasColumn("sale_percent"),
+    ]);
     const map = new Map<string, ProductSetting>();
     for (const r of (data ?? []) as Row[]) {
       map.set(r.product_id, {
@@ -63,9 +82,13 @@ export const getProductSettings = cache(
         description: r.description?.trim() || null,
         soldOut: typeof r.sold_out === "boolean" ? r.sold_out : null,
         pack: r.pack != null && Number(r.pack) > 1 ? Number(r.pack) : null,
+        salePercent: r.sale_percent ? Number(r.sale_percent) : null,
+        saleBuy: r.sale_buy && r.sale_free ? Number(r.sale_buy) : null,
+        saleFree: r.sale_buy && r.sale_free ? Number(r.sale_free) : null,
+        saleUntil: r.sale_until ?? null,
       });
     }
-    return { map, ready: true, soldOutReady, packReady };
+    return { map, ready: true, soldOutReady, packReady, saleReady };
   },
 );
 
@@ -73,10 +96,12 @@ export const getProductSettings = cache(
 export async function saveProductSetting(
   productId: string,
   s: ProductSetting,
-  columns: { soldOut: boolean; pack: boolean },
+  columns: { soldOut: boolean; pack: boolean; sale: boolean },
 ): Promise<boolean> {
-  const nothingSet = !s.hidden && !s.name && s.price == null && !s.description && s.soldOut == null && s.pack == null;
-  const { soldOut, pack, ...rest } = s;
+  const nothingSet =
+    !s.hidden && !s.name && s.price == null && !s.description && s.soldOut == null && s.pack == null &&
+    s.salePercent == null && s.saleBuy == null;
+  const { soldOut, pack, salePercent, saleBuy, saleFree, saleUntil, ...rest } = s;
   const { error } = nothingSet
     ? await db().from("teacher_products").delete().eq("product_id", productId)
     : await db()
@@ -87,6 +112,9 @@ export async function saveProductSetting(
             ...rest,
             ...(columns.soldOut ? { sold_out: soldOut } : {}),
             ...(columns.pack ? { pack } : {}),
+            ...(columns.sale
+              ? { sale_percent: salePercent, sale_buy: saleBuy, sale_free: saleFree, sale_until: saleUntil }
+              : {}),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "product_id" },

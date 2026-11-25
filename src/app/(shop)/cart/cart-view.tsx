@@ -15,6 +15,7 @@ import { cartCount, cartTotal, clearCart, setQty, useCart } from "@/lib/cart";
 import { BRAND_GRADIENT } from "@/lib/brand";
 import { useCheckoutId } from "@/lib/checkout-id";
 import { formatMnt } from "@/lib/format";
+import { dealLabel, freeQty, lineTotal, type Deal } from "@/lib/sale";
 import { loginHref } from "@/lib/next-path";
 import { useMounted } from "@/lib/use-mounted";
 import { cn } from "@/lib/utils";
@@ -51,17 +52,19 @@ function saveNote(v: string) {
 export function CartView({
   prices,
   packs,
+  deals,
   closedMessage,
   signedIn,
 }: {
   prices: Record<string, number>;
   packs: Record<string, number>;
+  deals: Record<string, Deal>;
   closedMessage: string | null;
   signedIn: boolean;
 }) {
   const items = useCart();
   const mounted = useMounted();
-  useCartPriceSync(prices, packs);
+  useCartPriceSync(prices, packs, deals);
   // Only shown once mounted, so reading the browser's storage here is safe.
   const [note, setNoteState] = useState(readNote);
   const setNote = (v: string) => {
@@ -202,7 +205,20 @@ export function CartView({
                   {(it.pack ?? 1) > 1
                     ? `${it.qty / (it.pack ?? 1)} багц × ${it.pack}ш · 1ш ${formatMnt(it.unit_price)}`
                     : `${formatMnt(it.unit_price)} × ${it.qty}`}
+                  {it.was_price ? <span className="ml-1.5 line-through">{formatMnt(it.was_price)}</span> : null}
                 </div>
+                {it.deal && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] font-semibold">
+                    <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">{dealLabel(it.deal)}</span>
+                    {freeQty(it.qty, it.deal) > 0 ? (
+                      <span className="text-primary-ink">{freeQty(it.qty, it.deal)} ширхэг үнэгүй</span>
+                    ) : (
+                      <span className="text-ink-3">
+                        {it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} нэмбэл {it.deal.free} үнэгүй
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="mt-auto flex items-center gap-3 pt-2">
                   <Stepper
                     qty={it.qty}
@@ -215,7 +231,7 @@ export function CartView({
                     label={`${it.name}: тоо`}
                   />
                   <span className="ml-auto text-[16px] font-extrabold tracking-tight tabular-nums">
-                    {formatMnt(it.qty * it.unit_price)}
+                    {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}
                   </span>
                 </div>
               </div>

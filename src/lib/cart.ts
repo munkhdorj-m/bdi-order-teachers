@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { lineTotal, type Deal } from "@/lib/sale";
 
 /**
  * The cart lives in this phone's localStorage (adapted from BDI's
@@ -19,6 +20,10 @@ export type CartItem = {
   qty: number;
   /** Багц size (missing / 1 = by the piece). */
   pack?: number;
+  /** «2+1»-style deal: some pieces are free. */
+  deal?: Deal | null;
+  /** Price of one piece before «-N%», for showing the saving. */
+  was_price?: number | null;
 };
 
 export const MAX_QTY = 999;
@@ -84,6 +89,7 @@ export function clearCart() {
 export function syncCartPrices(
   prices: Record<string, number>,
   packs: Record<string, number> = {},
+  deals: Record<string, Deal> = {},
 ): { repriced: number; removed: string[] } {
   const items = read();
   let repriced = 0;
@@ -98,9 +104,10 @@ export function syncCartPrices(
     }
     const pack = packs[it.product_id] ?? it.pack ?? 1;
     const qty = packed(it.qty, pack);
-    if ((it.pack ?? 1) !== pack || qty !== it.qty) repacked = true;
+    const deal = deals[it.product_id] ?? null;
+    if ((it.pack ?? 1) !== pack || qty !== it.qty || JSON.stringify(it.deal ?? null) !== JSON.stringify(deal)) repacked = true;
     if (Number(price) !== Number(it.unit_price)) repriced++;
-    next.push({ ...it, unit_price: Number(price), pack, qty });
+    next.push({ ...it, unit_price: Number(price), pack, qty, deal });
   }
   if (repriced > 0 || removed.length > 0 || repacked) write(next);
   return { repriced, removed };
@@ -111,7 +118,7 @@ export function cartCount(items: CartItem[]): number {
 }
 
 export function cartTotal(items: CartItem[]): number {
-  return items.reduce((s, i) => s + i.qty * i.unit_price, 0);
+  return items.reduce((s, i) => s + lineTotal(i.qty, i.unit_price, i.deal), 0);
 }
 
 // ---- useCart: useSyncExternalStore over localStorage ------------------

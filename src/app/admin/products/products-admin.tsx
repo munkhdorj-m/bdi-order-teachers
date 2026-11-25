@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { formatMnt } from "@/lib/format";
+import { dealLabel, dealText, percentOff } from "@/lib/sale";
+import { dayLabel, ubDayKey } from "@/lib/ub-date";
 import type { AdminProduct } from "@/lib/server/catalog";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
@@ -17,22 +19,39 @@ import {
   resetProductAction,
   saveProductAction,
   setProductHiddenAction,
+  setProductSaleAction,
   setProductStockAction,
+  type SaleInput,
   type StockMode,
 } from "../actions";
 
-type Filter = "all" | "shown" | "hidden" | "soldout" | "edited";
+type Filter = "all" | "shown" | "hidden" | "soldout" | "sale" | "edited";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Бүгд" },
   { key: "shown", label: "Харагдаж буй" },
   { key: "hidden", label: "Нуусан" },
   { key: "soldout", label: "Дууссан" },
+  { key: "sale", label: "Хямдралтай" },
   { key: "edited", label: "Өөрчилсөн" },
 ];
 
 const modeOf = (p: AdminProduct): StockMode =>
   p.setting?.soldOut == null ? "auto" : p.setting.soldOut ? "out" : "in";
+
+type SaleType = SaleInput["type"];
+
+const saleTypeOf = (p: AdminProduct): SaleType =>
+  p.setting?.salePercent ? "percent" : p.setting?.saleBuy && p.setting?.saleFree ? "deal" : "none";
+
+/** «−20%» / «2+1», and whether its last day has passed. */
+function saleBadge(p: AdminProduct): { label: string; over: boolean } | null {
+  const s = p.setting;
+  const type = saleTypeOf(p);
+  if (!s || type === "none") return null;
+  const label = type === "percent" ? `−${s.salePercent}%` : dealLabel({ buy: s.saleBuy!, free: s.saleFree! });
+  return { label, over: !!s.saleUntil && s.saleUntil < ubDayKey(new Date()) };
+}
 
 const isEdited = (p: AdminProduct) =>
   !!p.setting && (!!p.setting.name || p.setting.price != null || !!p.setting.description || p.setting.pack != null);
@@ -47,10 +66,12 @@ export function ProductsAdmin({
   products,
   ready,
   soldOutReady,
+  saleReady,
 }: {
   products: AdminProduct[];
   ready: boolean;
   soldOutReady: boolean;
+  saleReady: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -71,6 +92,7 @@ export function ProductsAdmin({
     shown: products.filter((p) => !hidden(p)).length,
     hidden: products.filter((p) => hidden(p)).length,
     soldout: products.filter((p) => soldOut(p)).length,
+    sale: products.filter((p) => saleBadge(p)).length,
     edited: products.filter(isEdited).length,
   };
 
@@ -84,7 +106,9 @@ export function ProductsAdmin({
           ? hidden(p)
           : filter === "soldout"
             ? soldOut(p)
-            : isEdited(p));
+            : filter === "sale"
+              ? !!saleBadge(p)
+              : isEdited(p));
     return byFilter && (!q || searchNormalize(`${p.name} ${p.bdiName} ${p.brand ?? ""}`).includes(q));
   });
 
@@ -154,6 +178,7 @@ export function ProductsAdmin({
         <ul className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
           {shown.map((p) => {
             const off = hidden(p);
+            const sale = saleBadge(p);
             return (
               <li key={p.id} className={cn("card flex items-center gap-3 p-3", off && "bg-muted/40")}>
                 <span className="relative block size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
@@ -181,6 +206,11 @@ export function ProductsAdmin({
                       <option value="in">Байгаа</option>
                       <option value="out">Дууссан</option>
                     </select>
+                    {sale && (
+                      <Badge className={sale.over ? "bg-muted-strong text-ink-3 line-through" : "bg-danger text-white"}>
+                        {sale.label}
+                      </Badge>
+                    )}
                     {p.setting?.pack != null && <Badge className="bg-info-soft text-info">Багц {p.setting.pack}ш</Badge>}
                     {isEdited(p) && <Badge className="bg-primary-soft text-primary-ink">Өөрчилсөн</Badge>}
                     {off && <Badge className="bg-muted-strong text-ink-2">Нуусан</Badge>}
@@ -208,21 +238,56 @@ export function ProductsAdmin({
       )}
 
       <Sheet open={!!editing} onOpenChange={(v) => !v && setEditing(null)} title="Бараа засах" wide>
-        {editing && <EditProduct key={editing.id} product={editing} onDone={() => setEditing(null)} />}
+        {editing && (
+          <EditProduct key={editing.id} product={editing} saleReady={saleReady} onDone={() => setEditing(null)} />
+        )}
       </Sheet>
     </>
   );
 }
 
-function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: () => void }) {
+function EditProduct({
+  product: p,
+  saleReady,
+  onDone,
+}: {
+  product: AdminProduct;
+  saleReady: boolean;
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [name, setName] = useState(p.setting?.name ?? "");
   const [price, setPrice] = useState(p.setting?.price != null ? String(p.setting.price) : "");
   const [description, setDescription] = useState(p.setting?.description ?? "");
   const [pack, setPack] = useState(p.setting?.pack != null ? String(p.setting.pack) : "");
+  const startType = saleTypeOf(p);
+  const [saleType, setSaleType] = useState<SaleType>(startType);
+  const [percent, setPercent] = useState(p.setting?.salePercent ? String(p.setting.salePercent) : "10");
+  const [buy, setBuy] = useState(p.setting?.saleBuy ? String(p.setting.saleBuy) : "1");
+  const [free, setFree] = useState(p.setting?.saleFree ? String(p.setting.saleFree) : "1");
+  const [until, setUntil] = useState(p.setting?.saleUntil ?? "");
   const [pending, start] = useTransition();
 
-  const run = (action: () => Promise<{ ok: true } | { ok: false; error: string }>, done: string) =>
+  const sale: SaleInput = { type: saleType, percent, buy, free, until };
+  const saleChanged =
+    saleType !== startType ||
+    (saleType === "percent" && Number(percent) !== p.setting?.salePercent) ||
+    (saleType === "deal" && (Number(buy) !== p.setting?.saleBuy || Number(free) !== p.setting?.saleFree)) ||
+    (saleType !== "none" && (until || null) !== (p.setting?.saleUntil ?? null));
+
+  // What teachers will see, in plain words.
+  const piece = price ? Number(price) : p.bdiPrice;
+  const pct = Number(percent);
+  const deal = { buy: Number(buy), free: Number(free) };
+  const preview =
+    saleType === "percent" && pct >= 1 && pct <= 90
+      ? `−${pct}%` + (piece ? ` · ${formatMnt(piece)} → ${formatMnt(percentOff(piece, pct))}` : "")
+      : saleType === "deal" && deal.buy >= 1 && deal.free >= 1
+        ? `${dealLabel(deal)} · ${dealText(deal)}`
+        : null;
+
+  type Result = { ok: true } | { ok: false; error: string };
+  const run = (action: () => Promise<Result>, done: string) =>
     start(async () => {
       const res = await action();
       if (!res.ok) {
@@ -233,6 +298,12 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
       router.refresh();
       onDone();
     });
+
+  const save = async (): Promise<Result> => {
+    const res = await saveProductAction(p.id, { name, price, description, pack });
+    if (!res.ok || !saleChanged) return res;
+    return setProductSaleAction(p.id, sale);
+  };
 
   return (
     <div className="space-y-4">
@@ -294,6 +365,124 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
+      <section className="rounded-2xl p-3.5 ring-1 ring-line">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[14px] font-bold">Хямдрал</span>
+          {!saleReady && <span className="text-[11.5px] font-semibold text-warn">sql/08-sales.sql хэрэгтэй</span>}
+        </div>
+        <div className="mt-2.5 grid grid-cols-3 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Хямдрал">
+          {SALE_TYPES.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={saleType === key}
+              disabled={!saleReady}
+              onClick={() => setSaleType(key)}
+              className={cn(
+                "h-9 rounded-lg text-[12.5px] font-bold transition-colors disabled:opacity-50",
+                saleType === key ? "bg-surface text-ink shadow-sm" : "text-ink-3 hover:text-ink",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {saleType === "percent" && (
+          <div className="mt-3">
+            <label htmlFor="s-pct" className="label">
+              Хямдрал (%)
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[10, 15, 20, 30, 50].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="chip"
+                  data-active={pct === n ? "" : undefined}
+                  onClick={() => setPercent(String(n))}
+                >
+                  {n}%
+                </button>
+              ))}
+              <input
+                id="s-pct"
+                className="field h-9 w-20 tabular-nums"
+                inputMode="numeric"
+                value={percent}
+                onChange={(e) => setPercent(e.target.value.replace(/\D/g, "").slice(0, 2))}
+              />
+            </div>
+          </div>
+        )}
+
+        {saleType === "deal" && (
+          <div className="mt-3">
+            <div className="flex flex-wrap gap-1.5">
+              {DEAL_PRESETS.map(([b, f]) => (
+                <button
+                  key={`${b}+${f}`}
+                  type="button"
+                  className="chip"
+                  data-active={deal.buy === b && deal.free === f ? "" : undefined}
+                  onClick={() => {
+                    setBuy(String(b));
+                    setFree(String(f));
+                  }}
+                >
+                  {b}+{f}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2.5 grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="s-buy" className="label">
+                  Авах тоо
+                </label>
+                <input
+                  id="s-buy"
+                  className="field tabular-nums"
+                  inputMode="numeric"
+                  value={buy}
+                  onChange={(e) => setBuy(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                />
+              </div>
+              <div>
+                <label htmlFor="s-free" className="label">
+                  Үнэгүй
+                </label>
+                <input
+                  id="s-free"
+                  className="field tabular-nums"
+                  inputMode="numeric"
+                  value={free}
+                  onChange={(e) => setFree(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                />
+              </div>
+            </div>
+            <p className="mt-1 text-[12px] font-medium text-ink-3">Ширхэгээр тоолно. Үнэгүй ширхэг захиалгад 0₮-өөр бичигдэнэ.</p>
+          </div>
+        )}
+
+        {saleType !== "none" && (
+          <>
+            <div className="mt-3">
+              <label htmlFor="s-until" className="label">
+                Сүүлийн өдөр <span className="font-medium text-ink-3">(заавал биш)</span>
+              </label>
+              <input id="s-until" type="date" className="field" value={until} onChange={(e) => setUntil(e.target.value)} />
+            </div>
+            {preview && (
+              <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-[13px] font-bold text-danger">
+                Багш нар харах нь: {preview}
+                {until && <span className="block text-[11.5px] font-semibold opacity-80">{dayLabel(until)} хүртэл</span>}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       <p className="text-[12px] font-medium text-ink-3">
         Хоосон бол BDI-ийн утга харагдана. Тайлбарт «-»-ээр эхэлсэн мөр «Онцлог» жагсаалтад харагдана.
       </p>
@@ -310,7 +499,7 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
           size="lg"
           className="min-w-40 flex-1"
           disabled={pending}
-          onClick={() => run(() => saveProductAction(p.id, { name, price, description, pack }), "Хадгаллаа")}
+          onClick={() => run(save, "Хадгаллаа")}
         >
           {pending && <Loader2 className="animate-spin" />}
           Хадгалах
@@ -319,6 +508,18 @@ function EditProduct({ product: p, onDone }: { product: AdminProduct; onDone: ()
     </div>
   );
 }
+
+const SALE_TYPES: [SaleType, string][] = [
+  ["none", "Байхгүй"],
+  ["percent", "Хувиар %"],
+  ["deal", "1+1 гэх мэт"],
+];
+
+const DEAL_PRESETS: [number, number][] = [
+  [1, 1],
+  [2, 1],
+  [3, 1],
+];
 
 function Badge({ className, children }: { className?: string; children: ReactNode }) {
   return (

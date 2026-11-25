@@ -5,6 +5,8 @@ import { ProductImage } from "@/components/product-image";
 import { CategoryIconTile, categoryVisual } from "@/lib/category-visual";
 import { describe } from "@/lib/describe";
 import { formatMnt } from "@/lib/format";
+import { dealLabel, dealText } from "@/lib/sale";
+import { dayLabel } from "@/lib/ub-date";
 import { getProduct } from "@/lib/server/catalog";
 import { getSettings } from "@/lib/server/settings";
 import { cn } from "@/lib/utils";
@@ -71,9 +73,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <h1 className="mt-1 text-[22px] font-extrabold leading-tight md:text-[30px]">{p.name}</h1>
 
           <div className="mt-3 flex items-baseline gap-1.5">
-            <span className="text-[28px] font-extrabold tracking-tight tabular-nums md:text-[34px]">
+            <span
+              className={cn(
+                "text-[28px] font-extrabold tracking-tight tabular-nums md:text-[34px]",
+                p.was_price && "text-danger",
+              )}
+            >
               {formatMnt(p.price * p.pack)}
             </span>
+            {p.was_price && (
+              <span className="text-[16px] font-semibold text-ink-3 line-through tabular-nums">
+                {formatMnt(p.was_price * p.pack)}
+              </span>
+            )}
             {p.pack > 1 ? (
               <span className="text-[14px] font-medium text-ink-3">
                 / багц ({p.pack}ш) · 1ш {formatMnt(p.price)}
@@ -82,6 +94,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               p.unit && <span className="text-[14px] font-medium text-ink-3">/ {p.unit}</span>
             )}
           </div>
+
+          {(p.sale_percent || p.deal) && (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-danger-soft px-4 py-3">
+              <span className="shrink-0 rounded-full bg-danger px-2.5 py-1 text-[14px] font-extrabold text-white">
+                {p.sale_percent ? `−${p.sale_percent}%` : dealLabel(p.deal!)}
+              </span>
+              <div className="min-w-0 text-[13.5px] font-semibold text-danger">
+                <div>
+                  {[p.sale_percent ? `${p.sale_percent}% хямдарсан` : null, p.deal ? dealText(p.deal) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+                {p.sale_until && <div className="text-[12px] font-medium opacity-80">{dayLabel(p.sale_until)} хүртэл</div>}
+              </div>
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             <Tag className={stock.cls}>{stock.label}</Tag>
@@ -102,6 +130,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               category_icon: p.category?.icon ?? null,
               unit_price: p.price,
               pack: p.pack,
+              deal: p.deal,
+              was_price: p.was_price,
             }}
             soldOut={p.sold_out}
             closed={!settings.open}

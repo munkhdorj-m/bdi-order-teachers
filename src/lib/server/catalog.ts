@@ -3,6 +3,8 @@ import { db } from "./supabase";
 import { fetchAll } from "./fetch-all";
 import { getProductSettings, type ProductSetting } from "./product-settings";
 import { getSettings } from "./settings";
+import { percentOff, type Deal } from "@/lib/sale";
+import { ubDayKey } from "@/lib/ub-date";
 import { isUuid } from "@/lib/uuid";
 
 /**
@@ -25,6 +27,13 @@ export type Product = {
   sold_out: boolean;
   /** Ordered in multiples of this many pieces (1 = by the piece). */
   pack: number;
+  /** Price of one piece before «-N%» (null = no percent sale). */
+  was_price: number | null;
+  sale_percent: number | null;
+  /** «2+1»-style deal, while it lasts. */
+  deal: Deal | null;
+  /** Last day of the sale, "YYYY-MM-DD". */
+  sale_until: string | null;
 };
 
 export type Category = { id: string; name: string; icon: string | null };
@@ -84,7 +93,17 @@ function soldOutOf(row: ProductRow, s: ProductSetting | undefined): boolean {
   return s?.soldOut ?? (row.stock ?? 0) <= 0;
 }
 
+/** The admin's sale, if it is on today (Ulaanbaatar time). */
+function saleOf(s: ProductSetting | undefined): { percent: number | null; deal: Deal | null; until: string | null } {
+  const on = !!s && (!s.saleUntil || s.saleUntil >= ubDayKey(new Date()));
+  if (!on || !s) return { percent: null, deal: null, until: null };
+  const deal = s.saleBuy && s.saleFree ? { buy: s.saleBuy, free: s.saleFree } : null;
+  return { percent: s.salePercent, deal, until: s.salePercent || deal ? s.saleUntil : null };
+}
+
+/** `price` is the regular price of one piece; the sale is applied here. */
 function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
+  const sale = saleOf(s);
   return {
     id: r.id,
     name: s?.name || r.name,
@@ -92,9 +111,13 @@ function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
     unit: r.unit?.trim() || null,
     image_url: r.image_url,
     category_id: r.category_id,
-    price,
+    price: percentOff(price, sale.percent),
     sold_out: soldOutOf(r, s),
     pack: s?.pack ?? 1,
+    was_price: sale.percent ? price : null,
+    sale_percent: sale.percent,
+    deal: sale.deal,
+    sale_until: sale.until,
   };
 }
 
@@ -184,34 +207,27 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
 }
 
 /** Price and багц size of everything that can be ordered right now. */
-export async function getOrderable(): Promise<{ prices: Record<string, number>; packs: Record<string, number> }> {
+export async function getOrderable(): Promise<{
+  prices: Record<string, number>;
+  packs: Record<string, number>;
+  deals: Record<string, Deal>;
+}> {
   const settings = await getSettings();
   const [rows, list, ps] = await Promise.all([activeProducts(), listPrices(settings.price_list_id), getProductSettings()]);
   const prices: Record<string, number> = {};
   const packs: Record<string, number> = {};
+  const deals: Record<string, Deal> = {};
   for (const r of rows) {
     const s = ps.map.get(r.id);
     if (s?.hidden) continue;
     const price = shopPrice(r, list, s);
     if (price == null || soldOutOf(r, s)) continue;
-    prices[r.id] = price;
-    packs[r.id] = s?.pack ?? 1;
+    const p = toProduct(r, price, s);
+    prices[r.id] = p.price;
+    packs[r.id] = p.pack;
+    if (p.deal) deals[r.id] = p.deal;
   }
-  return { prices, packs };
-}
-
-/** product_id → price, for everything that can be ordered right now. */
-export async function getOrderablePrices(): Promise<Record<string, number>> {
-  const settings = await getSettings();
-  const [rows, list, ps] = await Promise.all([activeProducts(), listPrices(settings.price_list_id), getProductSettings()]);
-  const out: Record<string, number> = {};
-  for (const r of rows) {
-    const s = ps.map.get(r.id);
-    if (s?.hidden) continue;
-    const price = shopPrice(r, list, s);
-    if (price != null && !soldOutOf(r, s)) out[r.id] = price;
-  }
-  return out;
+  return { prices, packs, deals };
 }
 
 /** Name and orderable state of some products (for clear error messages). */
@@ -257,7 +273,7 @@ export type AdminProduct = {
 };
 
 /** Every active BDI product, BDI's values beside the admin's. */
-export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]; ready: boolean; soldOutReady: boolean }> {
+export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]; ready: boolean; soldOutReady: boolean; saleReady: boolean }> {
   const settings = await getSettings();
   const [rows, cats, list, ps] = await Promise.all([
     fetchAll<ProductRow & { description: string | null }>(() =>
@@ -294,5 +310,5 @@ export async function listProductsForAdmin(): Promise<{ products: AdminProduct[]
       (rank.get(a.category?.id ?? "") ?? 1e9) - (rank.get(b.category?.id ?? "") ?? 1e9) ||
       nameCollator.compare(a.name, b.name),
   );
-  return { products, ready: ps.ready, soldOutReady: ps.soldOutReady };
+  return { products, ready: ps.ready, soldOutReady: ps.soldOutReady, saleReady: ps.saleReady };
 }

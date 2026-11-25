@@ -71,10 +71,22 @@ export async function deleteAccountAction(
 
 type ProductResult = { ok: true } | { ok: false; error: string };
 
-const NO_SETTING: ProductSetting = { hidden: false, name: null, price: null, description: null, soldOut: null, pack: null };
+const NO_SETTING: ProductSetting = {
+  hidden: false,
+  name: null,
+  price: null,
+  description: null,
+  soldOut: null,
+  pack: null,
+  salePercent: null,
+  saleBuy: null,
+  saleFree: null,
+  saleUntil: null,
+};
 const SQL_FIRST = "Эхлээд sql/04-product-settings.sql-ийг ажиллуулна уу";
 const SQL_05_FIRST = "Эхлээд sql/05-product-sold-out.sql-ийг ажиллуулна уу";
 const SQL_07_FIRST = "Багцад эхлээд sql/07-product-pack.sql-ийг ажиллуулна уу";
+const SQL_08_FIRST = "Хямдралд эхлээд sql/08-sales.sql-ийг ажиллуулна уу";
 
 async function saveProduct(
   productId: string,
@@ -82,13 +94,19 @@ async function saveProduct(
   needsSoldOut = false,
 ): Promise<ProductResult> {
   if (!isUuid(productId)) return { ok: false, error: "Олдсонгүй" };
-  const { map, ready, soldOutReady, packReady } = await getProductSettings();
+  const { map, ready, soldOutReady, packReady, saleReady } = await getProductSettings();
   if (!ready) return { ok: false, error: SQL_FIRST };
   if (needsSoldOut && !soldOutReady) return { ok: false, error: SQL_05_FIRST };
   const cur = map.get(productId) ?? NO_SETTING;
   const after = next(cur);
   if (after.pack != null && after.pack !== cur.pack && !packReady) return { ok: false, error: SQL_07_FIRST };
-  if (!(await saveProductSetting(productId, after, { soldOut: soldOutReady, pack: packReady }))) {
+  const saleChanged =
+    after.salePercent !== cur.salePercent ||
+    after.saleBuy !== cur.saleBuy ||
+    after.saleFree !== cur.saleFree ||
+    after.saleUntil !== cur.saleUntil;
+  if (saleChanged && !saleReady) return { ok: false, error: SQL_08_FIRST };
+  if (!(await saveProductSetting(productId, after, { soldOut: soldOutReady, pack: packReady, sale: saleReady }))) {
     return { ok: false, error: "Хадгалж чадсангүй" };
   }
   revalidatePath("/", "layout"); // the shop shows it right away
@@ -127,6 +145,47 @@ export async function saveProductAction(
 export async function resetProductAction(productId: string): Promise<ProductResult> {
   await requireAdmin();
   return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name: null, price: null, description: null, pack: null }));
+}
+
+export type SaleInput = {
+  type: "none" | "percent" | "deal";
+  percent?: string;
+  buy?: string;
+  free?: string;
+  until?: string;
+};
+
+/** A sale: «−20%», or «2+1» (buy 2, get 1 free); optional last day. */
+export async function setProductSaleAction(productId: string, input: SaleInput): Promise<ProductResult> {
+  await requireAdmin();
+  const type = input?.type;
+  if (type !== "none" && type !== "percent" && type !== "deal") return { ok: false, error: "Алдаа гарлаа" };
+  const int = (v: unknown) => {
+    const t = String(v ?? "").replace(/\D/g, "");
+    return t ? Number(t) : 0;
+  };
+  let salePercent: number | null = null;
+  let saleBuy: number | null = null;
+  let saleFree: number | null = null;
+  if (type === "percent") {
+    salePercent = int(input.percent);
+    if (salePercent < 1 || salePercent > 90) return { ok: false, error: "Хувь 1-90 байна" };
+  } else if (type === "deal") {
+    saleBuy = int(input.buy);
+    saleFree = int(input.free);
+    if (saleBuy < 1 || saleBuy > 20 || saleFree < 1 || saleFree > 20) {
+      return { ok: false, error: "Тоо 1-20 байна" };
+    }
+  }
+  let saleUntil: string | null = null;
+  const until = String(input?.until ?? "").trim();
+  if (type !== "none" && until) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) {
+      return { ok: false, error: "Огноо буруу байна" };
+    }
+    saleUntil = until;
+  }
+  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, salePercent, saleBuy, saleFree, saleUntil }));
 }
 
 export type StockMode = "auto" | "in" | "out";

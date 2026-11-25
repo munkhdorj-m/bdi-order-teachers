@@ -3,17 +3,22 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { syncCartPrices } from "@/lib/cart";
+import type { Deal } from "@/lib/sale";
 
 /**
  * On opening the cart: apply today's prices and drop what can't be
  * ordered any more (from BDI's use-cart-price-sync.ts), so the total
  * shown is the total the order will have.
  */
-export function useCartPriceSync(prices: Record<string, number>, packs: Record<string, number> = {}) {
+export function useCartPriceSync(
+  prices: Record<string, number>,
+  packs: Record<string, number> = {},
+  deals: Record<string, Deal> = {},
+) {
   useEffect(() => {
-    const { repriced, removed } = syncCartPrices(prices, packs);
+    const { repriced, removed } = syncCartPrices(prices, packs, deals);
     if (removed.length === 1) toast.warning(`«${removed[0]}» дууссан тул хасагдлаа`);
     else if (removed.length > 1) toast.warning(`${removed.length} бараа дууссан тул хасагдлаа`);
     if (repriced > 0) toast.info("Үнэ өөрчлөгдсөн, шинэ үнээр тооцлоо");
-  }, [prices, packs]);
+  }, [prices, packs, deals]);
 }

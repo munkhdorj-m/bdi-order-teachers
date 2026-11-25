@@ -6,7 +6,7 @@ import { ProductsAdmin } from "./products-admin";
 /** Every BDI product: show it on the site or not, and this shop's name / price / description. */
 export default async function AdminProductsPage() {
   await requireAdmin();
-  const { products, ready, soldOutReady } = await listProductsForAdmin();
+  const { products, ready, soldOutReady, saleReady } = await listProductsForAdmin();
   return (
     <>
       {!ready && (
@@ -19,7 +19,7 @@ export default async function AdminProductsPage() {
           <Notice>«Байгаа / Дууссан»-г сонгохын тулд sql/05-product-sold-out.sql-ийг ажиллуулна уу</Notice>
         </div>
       )}
-      <ProductsAdmin products={products} ready={ready} soldOutReady={soldOutReady} />
+      <ProductsAdmin products={products} ready={ready} soldOutReady={soldOutReady} saleReady={saleReady} />
     </>
   );
 }
