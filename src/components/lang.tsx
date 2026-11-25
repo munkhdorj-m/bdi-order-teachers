@@ -41,12 +41,12 @@ export function LangSwitch({ className, tone = "light" }: { className?: string; 
       aria-label="Language / Хэл"
       className={cn(
         "inline-flex h-9 shrink-0 items-center gap-0.5 rounded-xl p-0.5 text-[12px] font-bold",
-        tone === "dark" ? "bg-white/10 text-white" : "bg-muted text-ink-3",
+        tone === "dark" ? "bg-white/10 text-white" : "bg-surface text-ink-2 ring-1 ring-line-strong",
         pending && "opacity-60",
         className,
       )}
     >
-      <Languages className="mx-1 size-3.5 opacity-70" aria-hidden />
+      <Languages className="mx-1 size-4 text-primary max-[360px]:hidden" strokeWidth={2.2} aria-hidden />
       {(
         [
           ["mn", "МН"],
@@ -64,7 +64,7 @@ export function LangSwitch({ className, tone = "light" }: { className?: string; 
             lang === key
               ? tone === "dark"
                 ? "bg-white text-ink"
-                : "bg-surface text-ink shadow-sm"
+                : "bg-ink text-white shadow-sm"
               : "hover:text-ink",
           )}
         >

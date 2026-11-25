@@ -7,7 +7,14 @@ import { useLang } from "@/components/lang";
 import { ProductImage } from "@/components/product-image";
 import { buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
-import { cartCount, cartTotal, packParts, setQty, useCart } from "@/lib/cart";
+import {
+  cartCount,
+  cartTotal,
+  itemName,
+  packParts,
+  setQty,
+  useCart,
+} from "@/lib/cart";
 import { formatMnt } from "@/lib/format";
 import { lineTotal } from "@/lib/sale";
 import { packText } from "@/lib/pack-text";
@@ -64,7 +71,7 @@ export function CartBar() {
 export function CartPanel() {
   const items = useCart();
   const mounted = useMounted();
-  const { t } = useLang();
+  const { lang, t } = useLang();
   return (
     <div className="card flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3.5">
@@ -72,7 +79,10 @@ export function CartPanel() {
         <span className="text-[15px] font-bold">{t("Сагс", "Cart")}</span>
         {items.length > 0 && (
           <span className="ml-auto text-[12px] font-semibold text-ink-3 tabular-nums">
-            {t(`${items.length} бараа`, `${items.length} ${items.length === 1 ? "item" : "items"}`)}
+            {t(
+              `${items.length} бараа`,
+              `${items.length} ${items.length === 1 ? "item" : "items"}`,
+            )}
           </span>
         )}
       </div>
@@ -96,11 +106,11 @@ export function CartPanel() {
                 <Link
                   href={`/products/${it.product_id}`}
                   className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-muted"
-                  aria-label={it.name}
+                  aria-label={itemName(it, lang)}
                 >
                   <ProductImage
                     src={it.image_url}
-                    alt={it.name}
+                    alt={itemName(it, lang)}
                     category={
                       it.category_name
                         ? { name: it.category_name, icon: it.category_icon }
@@ -112,7 +122,7 @@ export function CartPanel() {
                 </Link>
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-[12.5px] font-semibold leading-snug">
-                    {it.name}
+                    {itemName(it, lang)}
                   </div>
                   {(it.pack ?? 1) > 1 &&
                     packParts(it.qty, it.pack).packs > 0 && (
@@ -129,7 +139,10 @@ export function CartPanel() {
                       tone="outline"
                       size="sm"
                       className="w-[6.5rem]"
-                      label={t(`${it.name}: тоо`, `${it.name}: quantity`)}
+                      label={t(
+                        `${itemName(it, lang)}: тоо`,
+                        `${itemName(it, lang)}: quantity`,
+                      )}
                     />
                     <span className="ml-auto text-[13px] font-bold tabular-nums">
                       {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}

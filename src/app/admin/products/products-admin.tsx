@@ -289,6 +289,8 @@ function EditProduct({
   const [name, setName] = useState(p.setting?.name ?? "");
   const [price, setPrice] = useState(p.setting?.price != null ? String(p.setting.price) : "");
   const [description, setDescription] = useState(p.setting?.description ?? "");
+  const [nameEn, setNameEn] = useState(p.setting?.nameEn ?? "");
+  const [descriptionEn, setDescriptionEn] = useState(p.setting?.descriptionEn ?? "");
   const [byPack, setByPack] = useState(p.setting?.pack != null);
   const [pack, setPack] = useState(String(p.setting?.pack ?? p.bdiPack ?? ""));
   const startType = saleTypeOf(p);
@@ -333,7 +335,7 @@ function EditProduct({
   const packN = Number(pack);
   const save = async (): Promise<Result> => {
     if (byPack && !(packN >= 2 && packN <= 500)) return { ok: false, error: "1 багцад хэдэн ширхэг байхыг бичнэ үү (2-500)" };
-    const res = await saveProductAction(p.id, { name, price, description, pack: byPack ? pack : "" });
+    const res = await saveProductAction(p.id, { name, price, description, pack: byPack ? pack : "", nameEn, descriptionEn });
     if (!res.ok || !saleChanged) return res;
     return setProductSaleAction(p.id, sale);
   };
@@ -433,6 +435,37 @@ function EditProduct({
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
+
+      <section className="space-y-3 rounded-2xl p-3.5 ring-1 ring-line">
+        <div className="text-[14px] font-bold">English (EN)</div>
+        <div>
+          <label htmlFor="p-name-en" className="label">
+            Name
+          </label>
+          <input
+            id="p-name-en"
+            className="field"
+            value={nameEn}
+            maxLength={200}
+            placeholder={name || p.bdiName}
+            onChange={(e) => setNameEn(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="p-desc-en" className="label">
+            Description
+          </label>
+          <textarea
+            id="p-desc-en"
+            className="field"
+            rows={4}
+            maxLength={4000}
+            value={descriptionEn}
+            onChange={(e) => setDescriptionEn(e.target.value)}
+          />
+        </div>
+        <p className="text-[12px] font-medium text-ink-3">Хоосон бол англи хэлээр уншиж буй багш нарт монгол нэр, тайлбар харагдана.</p>
+      </section>
       <section className="rounded-2xl p-3.5 ring-1 ring-line">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[14px] font-bold">Хямдрал</span>

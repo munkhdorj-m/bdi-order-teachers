@@ -75,7 +75,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <LangSwitch className="hidden sm:inline-flex" />
+          <LangSwitch />
           {path === "/" && (
             <button
               type="button"

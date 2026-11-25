@@ -48,7 +48,8 @@ export default async function ProductPage({
           label: t("Бэлэн", "In stock"),
           cls: "bg-primary-soft text-primary-ink",
         };
-  const d = describe(p.description);
+  const name = lang === "en" && p.name_en ? p.name_en : p.name;
+  const d = describe(lang === "en" && p.description_en ? p.description_en : p.description);
 
   const details: { label: string; value: string | null }[] = [
     { label: t("Брэнд", "Brand"), value: p.brand },
@@ -84,7 +85,7 @@ export default async function ProductPage({
           <div className="relative aspect-square overflow-hidden rounded-3xl bg-surface shadow-card ring-1 ring-black/5">
             <ProductImage
               src={p.image_url}
-              alt={p.name}
+              alt={name}
               category={p.category}
               sizes="(max-width: 768px) 100vw, 560px"
               priority
@@ -111,7 +112,7 @@ export default async function ProductPage({
             </div>
           )}
           <h1 className="mt-1 text-[22px] font-extrabold leading-tight md:text-[30px]">
-            {p.name}
+            {name}
           </h1>
 
           <div className="mt-3 flex items-baseline gap-1.5">
@@ -203,6 +204,7 @@ export default async function ProductPage({
             product={{
               product_id: p.id,
               name: p.name,
+              name_en: p.name_en,
               image_url: p.image_url,
               category_name: p.category?.name ?? null,
               category_icon: p.category?.icon ?? null,

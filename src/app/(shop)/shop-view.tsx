@@ -72,7 +72,7 @@ export function ShopView({
     () =>
       products.map((p) => ({
         p,
-        hay: searchNormalize(`${p.name} ${p.brand ?? ""}`),
+        hay: searchNormalize(`${p.name} ${p.name_en ?? ""} ${p.brand ?? ""}`),
       })),
     [products],
   );
@@ -383,9 +383,11 @@ function ProductCard({
 }) {
   const visual = categoryVisual(category);
   const { lang, t } = useLang();
+  const name = lang === "en" && product.name_en ? product.name_en : product.name;
   const line = {
     product_id: product.id,
     name: product.name,
+    name_en: product.name_en,
     image_url: product.image_url,
     category_name: category?.name ?? null,
     category_icon: category?.icon ?? null,
@@ -408,7 +410,7 @@ function ProductCard({
         <div className="relative aspect-[4/3.4] overflow-hidden bg-muted/60">
           <ProductImage
             src={product.image_url}
-            alt={product.name}
+            alt={name}
             category={category}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 240px"
             priority={priority}
@@ -464,7 +466,7 @@ function ProductCard({
             </span>
           )}
           <h3 className="line-clamp-2 min-h-[2.5em] text-[13.5px] font-semibold leading-[1.25]">
-            {product.name}
+            {name}
           </h3>
           <div className="mt-auto flex flex-wrap items-baseline gap-x-1 pt-0.5">
             <span
@@ -505,7 +507,7 @@ function ProductCard({
               qty={qty}
               onChange={(n) => setQty(line, n)}
               className="min-w-0 flex-1"
-              label={t(`${product.name}: тоо`, `${product.name}: quantity`)}
+              label={t(`${name}: тоо`, `${name}: quantity`)}
             />
             {byPack && (
               <button
@@ -532,8 +534,8 @@ function ProductCard({
               type="button"
               onClick={() => setQty(line, 1)}
               aria-label={t(
-                `${product.name}: 1 ширхэг нэмэх`,
-                `${product.name}: add 1 piece`,
+                `${name}: 1 ширхэг нэмэх`,
+                `${name}: add 1 piece`,
               )}
               className="flex h-10 items-center justify-center gap-1 rounded-xl bg-primary-soft text-[12.5px] font-bold text-primary-ink transition-colors hover:bg-primary hover:text-white active:scale-[0.98]"
             >
@@ -544,8 +546,8 @@ function ProductCard({
               type="button"
               onClick={() => setQty(line, product.pack)}
               aria-label={t(
-                `${product.name}: багц (${product.pack}ш) нэмэх`,
-                `${product.name}: add a pack (${product.pack} pcs)`,
+                `${name}: багц (${product.pack}ш) нэмэх`,
+                `${name}: add a pack (${product.pack} pcs)`,
               )}
               className="flex h-10 items-center justify-center gap-1 rounded-xl bg-info-soft text-[12.5px] font-bold text-info transition-colors hover:bg-info hover:text-white active:scale-[0.98]"
             >
@@ -558,8 +560,8 @@ function ProductCard({
             type="button"
             onClick={() => setQty(line, 1)}
             aria-label={t(
-              `${product.name}: сагсанд нэмэх`,
-              `${product.name}: add to cart`,
+              `${name}: сагсанд нэмэх`,
+              `${name}: add to cart`,
             )}
             className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-primary-soft text-[13.5px] font-bold text-primary-ink transition-colors hover:bg-primary hover:text-white active:scale-[0.98]"
           >

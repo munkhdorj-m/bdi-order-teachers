@@ -18,6 +18,8 @@ import { isUuid } from "@/lib/uuid";
 export type Product = {
   id: string;
   name: string;
+  /** English name (sql/09), null = show the Mongolian one. */
+  name_en: string | null;
   brand: string | null;
   unit: string | null;
   image_url: string | null;
@@ -40,6 +42,7 @@ export type Category = { id: string; name: string; icon: string | null };
 
 export type ProductDetail = Product & {
   description: string | null;
+  description_en: string | null;
   stock: number;
   category: Category | null;
   sku: string | null;
@@ -107,6 +110,7 @@ function toProduct(r: ProductRow, price: number, s?: ProductSetting): Product {
   return {
     id: r.id,
     name: s?.name || r.name,
+    name_en: s?.nameEn ?? null,
     brand: r.brand?.trim() || null,
     unit: r.unit?.trim() || null,
     image_url: r.image_url,
@@ -197,6 +201,7 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
   return {
     ...toProduct(row, price, s),
     description: s?.description || row.description?.trim() || null,
+    description_en: s?.descriptionEn ?? null,
     stock: Number(row.stock ?? 0),
     category,
     sku: row.sku?.trim() || null,

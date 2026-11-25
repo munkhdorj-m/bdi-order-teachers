@@ -83,11 +83,14 @@ const NO_SETTING: ProductSetting = {
   saleBuy: null,
   saleFree: null,
   saleUntil: null,
+  nameEn: null,
+  descriptionEn: null,
 };
 const SQL_FIRST = "Эхлээд sql/04-product-settings.sql-ийг ажиллуулна уу";
 const SQL_05_FIRST = "Эхлээд sql/05-product-sold-out.sql-ийг ажиллуулна уу";
 const SQL_07_FIRST = "Багцад эхлээд sql/07-product-pack.sql-ийг ажиллуулна уу";
 const SQL_08_FIRST = "Хямдралд эхлээд sql/08-sales.sql-ийг ажиллуулна уу";
+const SQL_09_FIRST = "Англи нэрэнд эхлээд sql/09-product-english.sql-ийг ажиллуулна уу";
 
 async function saveProduct(
   productId: string,
@@ -95,7 +98,7 @@ async function saveProduct(
   needsSoldOut = false,
 ): Promise<ProductResult> {
   if (!isUuid(productId)) return { ok: false, error: "Олдсонгүй" };
-  const { map, ready, soldOutReady, packReady, saleReady } = await getProductSettings();
+  const { map, ready, soldOutReady, packReady, saleReady, englishReady } = await getProductSettings();
   if (!ready) return { ok: false, error: SQL_FIRST };
   if (needsSoldOut && !soldOutReady) return { ok: false, error: SQL_05_FIRST };
   const cur = map.get(productId) ?? NO_SETTING;
@@ -107,7 +110,10 @@ async function saveProduct(
     after.saleFree !== cur.saleFree ||
     after.saleUntil !== cur.saleUntil;
   if (saleChanged && !saleReady) return { ok: false, error: SQL_08_FIRST };
-  if (!(await saveProductSetting(productId, after, { soldOut: soldOutReady, pack: packReady, sale: saleReady }))) {
+  const englishChanged = after.nameEn !== cur.nameEn || after.descriptionEn !== cur.descriptionEn;
+  if (englishChanged && !englishReady) return { ok: false, error: SQL_09_FIRST };
+  const columns = { soldOut: soldOutReady, pack: packReady, sale: saleReady, english: englishReady };
+  if (!(await saveProductSetting(productId, after, columns))) {
     return { ok: false, error: "Хадгалж чадсангүй" };
   }
   revalidatePath("/", "layout"); // the shop shows it right away
@@ -123,7 +129,7 @@ export async function setProductHiddenAction(productId: string, hidden: boolean)
 /** The admin's name / price / description / багц; empty = BDI's own (or by the piece). */
 export async function saveProductAction(
   productId: string,
-  input: { name?: string; price?: string; description?: string; pack?: string },
+  input: { name?: string; price?: string; description?: string; pack?: string; nameEn?: string; descriptionEn?: string },
 ): Promise<ProductResult> {
   await requireAdmin();
   const name = String(input?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 200) || null;
@@ -139,7 +145,18 @@ export async function saveProductAction(
   const packN = rawPack ? Number(rawPack) : 0;
   if (packN === 1 || packN > 500) return { ok: false, error: "Багц 2-500 ширхэг байна" };
   const pack = packN >= 2 ? packN : null;
-  return saveProduct(String(productId ?? ""), (cur) => ({ ...cur, name, price, description, pack }));
+  const nameEn = input?.nameEn === undefined ? undefined : String(input.nameEn).trim().replace(/\s+/g, " ").slice(0, 200) || null;
+  const descriptionEn =
+    input?.descriptionEn === undefined ? undefined : String(input.descriptionEn).trim().slice(0, 4000) || null;
+  return saveProduct(String(productId ?? ""), (cur) => ({
+    ...cur,
+    name,
+    price,
+    description,
+    pack,
+    nameEn: nameEn === undefined ? cur.nameEn : nameEn,
+    descriptionEn: descriptionEn === undefined ? cur.descriptionEn : descriptionEn,
+  }));
 }
 
 /**
@@ -148,7 +165,7 @@ export async function saveProductAction(
  */
 export async function packAllFromBdiAction(): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   await requireAdmin();
-  const { map, ready, soldOutReady, packReady, saleReady } = await getProductSettings();
+  const { map, ready, soldOutReady, packReady, saleReady, englishReady } = await getProductSettings();
   if (!ready) return { ok: false, error: SQL_FIRST };
   if (!packReady) return { ok: false, error: SQL_07_FIRST };
   const { products } = await listProductsForAdmin();
@@ -156,7 +173,12 @@ export async function packAllFromBdiAction(): Promise<{ ok: true; count: number 
   let count = 0;
   for (const p of todo) {
     const cur = map.get(p.id) ?? NO_SETTING;
-    const ok = await saveProductSetting(p.id, { ...cur, pack: p.bdiPack }, { soldOut: soldOutReady, pack: packReady, sale: saleReady });
+    const ok = await saveProductSetting(p.id, { ...cur, pack: p.bdiPack }, {
+      soldOut: soldOutReady,
+      pack: packReady,
+      sale: saleReady,
+      english: englishReady,
+    });
     if (ok) count++;
   }
   revalidatePath("/", "layout");

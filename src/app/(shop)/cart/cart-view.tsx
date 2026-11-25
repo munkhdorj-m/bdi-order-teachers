@@ -23,6 +23,7 @@ import { Stepper } from "@/components/ui/stepper";
 import {
   cartCount,
   cartTotal,
+  itemName,
   clearCart,
   packParts,
   setQty,
@@ -81,7 +82,7 @@ export function CartView({
 }) {
   const items = useCart();
   const mounted = useMounted();
-  const { t } = useLang();
+  const { lang, t } = useLang();
   useCartPriceSync(prices, packs, deals);
   // Only shown once mounted, so reading the browser's storage here is safe.
   const [note, setNoteState] = useState(readNote);
@@ -208,12 +209,12 @@ export function CartView({
             >
               <Link
                 href={`/products/${it.product_id}`}
-                aria-label={it.name}
+                aria-label={itemName(it, lang)}
                 className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-muted sm:size-24"
               >
                 <ProductImage
                   src={it.image_url}
-                  alt={it.name}
+                  alt={itemName(it, lang)}
                   category={
                     it.category_name
                       ? { name: it.category_name, icon: it.category_icon }
@@ -229,7 +230,7 @@ export function CartView({
                     href={`/products/${it.product_id}`}
                     className="line-clamp-2 min-w-0 flex-1 text-[14px] font-semibold leading-snug hover:underline sm:text-[15px]"
                   >
-                    {it.name}
+                    {itemName(it, lang)}
                   </Link>
                   <button
                     type="button"
@@ -284,7 +285,10 @@ export function CartView({
                     size="sm"
                     keepOne
                     className="w-28"
-                    label={t(`${it.name}: тоо`, `${it.name}: quantity`)}
+                    label={t(
+                      `${itemName(it, lang)}: тоо`,
+                      `${itemName(it, lang)}: quantity`,
+                    )}
                   />
                   {(it.pack ?? 1) > 1 && (
                     <button

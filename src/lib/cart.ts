@@ -11,6 +11,8 @@ import { lineTotal, type Deal } from "@/lib/sale";
 export type CartItem = {
   product_id: string;
   name: string;
+  /** English name, shown when the page is in English. */
+  name_en?: string | null;
   image_url: string | null;
   /** For the stand-in picture when there's no photo. */
   category_name: string | null;
@@ -27,6 +29,11 @@ export type CartItem = {
 };
 
 export const MAX_QTY = 999;
+
+/** The line's name in the reader's language. */
+export function itemName(it: { name: string; name_en?: string | null }, lang: "mn" | "en"): string {
+  return lang === "en" && it.name_en ? it.name_en : it.name;
+}
 
 const KEY = "bdi-shop-cart-v1";
 const EVENT = "bdi-shop-cart-change";

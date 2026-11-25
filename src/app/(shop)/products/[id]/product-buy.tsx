@@ -5,7 +5,7 @@ import { ChevronRight, Package, Plus } from "lucide-react";
 import { useLang } from "@/components/lang";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
-import { packParts, setQty, useCartQty, type CartItem } from "@/lib/cart";
+import { itemName, packParts, setQty, useCartQty, type CartItem } from "@/lib/cart";
 import { useMounted } from "@/lib/use-mounted";
 
 /**
@@ -23,7 +23,8 @@ export function ProductBuy({
 }) {
   const qty = useCartQty(product.product_id);
   const mounted = useMounted();
-  const { t } = useLang();
+  const { lang, t } = useLang();
+  const name = itemName(product, lang);
   const pack = (product.pack ?? 1) > 1 ? product.pack! : 0;
   const parts = packParts(qty, pack || 1);
 
@@ -64,7 +65,7 @@ export function ProductBuy({
             onChange={(n) => setQty(product, n)}
             size="lg"
             className="min-w-0 flex-1"
-            label={t(`${product.name}: тоо`, `${product.name}: quantity`)}
+            label={t(`${name}: тоо`, `${name}: quantity`)}
           />
           {pack > 0 &&
             packButton(`+${pack}`, "shrink-0 px-3 !bg-info-soft !text-info hover:!bg-info hover:!text-white")}

@@ -22,6 +22,9 @@ export type ProductSetting = {
   saleBuy: number | null;
   saleFree: number | null;
   saleUntil: string | null;
+  /** English name / description (sql/09); null = the Mongolian one. */
+  nameEn: string | null;
+  descriptionEn: string | null;
 };
 
 type Row = {
@@ -36,6 +39,8 @@ type Row = {
   sale_buy?: number | null;
   sale_free?: number | null;
   sale_until?: string | null;
+  name_en?: string | null;
+  description_en?: string | null;
 };
 
 /** The table isn't there yet (sql/04 not run): the shop works as before. */
@@ -60,18 +65,20 @@ export const getProductSettings = cache(
     soldOutReady: boolean;
     packReady: boolean;
     saleReady: boolean;
+    englishReady: boolean;
   }> => {
     const { data, error } = await db().from("teacher_products").select("*");
     if (error) {
       if (missingTable(error) || /schema cache|does not exist/i.test(error.message ?? "")) {
-        return { map: new Map(), ready: false, soldOutReady: false, packReady: false, saleReady: false };
+        return { map: new Map(), ready: false, soldOutReady: false, packReady: false, saleReady: false, englishReady: false };
       }
       throw new Error(error.message);
     }
-    const [soldOutReady, packReady, saleReady] = await Promise.all([
+    const [soldOutReady, packReady, saleReady, englishReady] = await Promise.all([
       hasColumn("sold_out"),
       hasColumn("pack"),
       hasColumn("sale_percent"),
+      hasColumn("name_en"),
     ]);
     const map = new Map<string, ProductSetting>();
     for (const r of (data ?? []) as Row[]) {
@@ -86,9 +93,11 @@ export const getProductSettings = cache(
         saleBuy: r.sale_buy && r.sale_free ? Number(r.sale_buy) : null,
         saleFree: r.sale_buy && r.sale_free ? Number(r.sale_free) : null,
         saleUntil: r.sale_until ?? null,
+        nameEn: r.name_en?.trim() || null,
+        descriptionEn: r.description_en?.trim() || null,
       });
     }
-    return { map, ready: true, soldOutReady, packReady, saleReady };
+    return { map, ready: true, soldOutReady, packReady, saleReady, englishReady };
   },
 );
 
@@ -96,12 +105,12 @@ export const getProductSettings = cache(
 export async function saveProductSetting(
   productId: string,
   s: ProductSetting,
-  columns: { soldOut: boolean; pack: boolean; sale: boolean },
+  columns: { soldOut: boolean; pack: boolean; sale: boolean; english: boolean },
 ): Promise<boolean> {
   const nothingSet =
     !s.hidden && !s.name && s.price == null && !s.description && s.soldOut == null && s.pack == null &&
-    s.salePercent == null && s.saleBuy == null;
-  const { soldOut, pack, salePercent, saleBuy, saleFree, saleUntil, ...rest } = s;
+    s.salePercent == null && s.saleBuy == null && !s.nameEn && !s.descriptionEn;
+  const { soldOut, pack, salePercent, saleBuy, saleFree, saleUntil, nameEn, descriptionEn, ...rest } = s;
   const { error } = nothingSet
     ? await db().from("teacher_products").delete().eq("product_id", productId)
     : await db()
@@ -115,10 +124,30 @@ export async function saveProductSetting(
             ...(columns.sale
               ? { sale_percent: salePercent, sale_buy: saleBuy, sale_free: saleFree, sale_until: saleUntil }
               : {}),
+            ...(columns.english ? { name_en: nameEn, description_en: descriptionEn } : {}),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "product_id" },
         );
   if (error) console.error("saveProductSetting:", error.message);
   return !error;
+}
+
+const GIFT_MN = " (бэлэг)";
+
+/**
+ * Order lines read in English: the product's English name when the admin
+ * (or sql/09) gave one; free «бэлэг» lines keep their marker.
+ */
+export async function localizeItems<I extends { product_id: string | null; name: string }>(
+  items: I[],
+  lang: "mn" | "en",
+): Promise<I[]> {
+  if (lang !== "en") return items;
+  const { map } = await getProductSettings();
+  return items.map((it) => {
+    const en = it.product_id ? map.get(it.product_id)?.nameEn : null;
+    if (!en) return it.name.endsWith(GIFT_MN) ? { ...it, name: it.name.slice(0, -GIFT_MN.length) + " (free)" } : it;
+    return { ...it, name: it.name.endsWith(GIFT_MN) ? `${en} (free)` : en };
+  });
 }

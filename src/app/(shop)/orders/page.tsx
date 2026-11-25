@@ -13,40 +13,25 @@ import { listMyOrders, type Order } from "@/lib/server/orders";
 import { requireTeacher } from "@/lib/server/session";
 import { cn } from "@/lib/utils";
 
-type Filter = "new" | "paid" | "all";
-
-/** My orders, as on BDI: filter chips, then cards with a progress bar. */
-export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ s?: string }> }) {
+/** My orders, paid or not, newest first: one card each with its status and a progress bar. */
+export default async function OrdersPage() {
   const me = await requireTeacher("/orders");
-  const sp = await searchParams;
-  const filter: Filter = sp.s === "paid" || sp.s === "all" ? sp.s : "new";
   const [all, lang] = await Promise.all([listMyOrders(me.id), getLang()]);
   const t = makeT(lang);
-  const unpaid = all.filter((o) => o.status === "new");
-  const rows = filter === "new" ? unpaid : filter === "paid" ? all.filter((o) => o.status === "paid") : all;
-
-  const tabs: { key: Filter; label: string; badge?: number }[] = [
-    { key: "new", label: t("Төлөөгүй", "Unpaid"), badge: unpaid.length || undefined },
-    { key: "paid", label: t("Төлсөн", "Paid") },
-    { key: "all", label: t("Бүгд", "All") },
-  ];
+  const unpaid = all.filter((o) => o.status === "new").length;
+  const rows = all;
 
   return (
     <div className="mx-auto max-w-6xl px-3 pt-4 sm:px-6 lg:px-8 lg:pt-8">
-      <PageTitle title={t("Захиалга", "Orders")} />
-      <div className="mt-4 flex flex-wrap gap-2">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.key === "new" ? "/orders" : `/orders?s=${tab.key}`}
-            className="chip"
-            data-active={tab.key === filter ? "" : undefined}
-          >
-            {tab.label}
-            {tab.badge != null && <span className="tabular-nums opacity-70">{tab.badge}</span>}
-          </Link>
-        ))}
-      </div>
+      <PageTitle
+        title={t("Захиалга", "Orders")}
+        sub={
+          all.length > 0
+            ? t(`${all.length} захиалга`, `${all.length} ${all.length === 1 ? "order" : "orders"}`) +
+              (unpaid ? t(` · ${unpaid} төлөөгүй`, ` · ${unpaid} unpaid`) : "")
+            : undefined
+        }
+      />
 
       {rows.length === 0 ? (
         <EmptyState
