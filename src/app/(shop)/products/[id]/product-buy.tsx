@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Package, Plus } from "lucide-react";
+import { DealNote } from "@/components/deal-note";
 import { useLang } from "@/components/lang";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
@@ -74,6 +75,7 @@ export function ProductBuy({
             <ChevronRight />
           </Link>
         </div>
+        <DealNote qty={qty} deal={product.deal} next />
         {pack > 0 && (
           <p className="text-[12.5px] font-semibold text-ink-3 tabular-nums">
             {qty} {t("ширхэг", "pcs")}

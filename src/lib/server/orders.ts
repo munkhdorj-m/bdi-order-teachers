@@ -7,6 +7,7 @@ import { CLOSED_DEFAULT, getSettings } from "./settings";
 import { sendTelegram } from "./telegram";
 import { formatMnt, formatPhone } from "@/lib/format";
 import { dbStatuses, normalizeStatus, type OrderStatus } from "@/lib/order-status";
+import { receivedQty } from "@/lib/sale";
 import { isUuid } from "@/lib/uuid";
 
 /**
@@ -121,7 +122,7 @@ export async function placeOrder(
 ): Promise<PlaceResult> {
   const t = makeT(lang);
   const generic = t(GENERIC, GENERIC_EN);
-  const closed = (msg: string) => msg || t(CLOSED_DEFAULT, "Ordering is closed for now");
+  const closed = (msg: string) => msg || t(CLOSED_DEFAULT, "The shop is closed for now");
   const soldOut = t("Зарим бараа дууссан байна", "Some items are sold out");
   if (!isUuid(input.requestId)) return { ok: false, error: generic };
   const items = parseItems(input.items);
@@ -138,10 +139,18 @@ export async function placeOrder(
     return { ok: false, error: names.length ? `${t("Дууссан", "Sold out")}: ${names.join(", ")}` : soldOut };
   }
 
+  // The cart counts what the teacher pays for; a «1+1» deal adds its free
+  // pieces on top. The database splits each line back into the paid pieces
+  // and a 0₮ «бэлэг» line (sql/08), so this always charges for `qty` only.
+  const lines = items.map((i) => ({ product_id: i.product_id, qty: receivedQty(i.qty, states.get(i.product_id)?.deal) }));
+  if (lines.some((l) => l.qty > 999)) {
+    return { ok: false, error: t("Нэг бараанаас 999-өөс ихгүй ширхэг захиална", "At most 999 pieces of one product") };
+  }
+
   const { data, error } = await db().rpc("teacher_place_order", {
     p_order_id: input.requestId.toLowerCase(),
     p_account_id: accountId,
-    p_items: items,
+    p_items: lines,
     p_note: note,
   });
   if (error) {
@@ -172,6 +181,30 @@ export async function cancelMyOrder(
     .select("id");
   if (error) return { ok: false, error: t(GENERIC, GENERIC_EN) };
   if (!data?.length) return { ok: false, error: t("Төлсөн захиалгыг цуцлах боломжгүй", "A paid order can't be cancelled") };
+  return { ok: true };
+}
+
+/**
+ * The buyer removes one of their own cancelled orders from their list for
+ * good (its lines go with it). New and paid orders can never be removed:
+ * the owner and status checks are part of the delete itself.
+ */
+export async function deleteMyCancelledOrder(
+  accountId: string,
+  orderId: string,
+  lang: Lang = "mn",
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const t = makeT(lang);
+  if (!isUuid(orderId)) return { ok: false, error: t("Захиалга олдсонгүй", "Order not found") };
+  const { data, error } = await db()
+    .from("teacher_orders")
+    .delete()
+    .eq("id", orderId)
+    .eq("account_id", accountId)
+    .eq("status", "cancelled")
+    .select("id");
+  if (error) return { ok: false, error: t(GENERIC, GENERIC_EN) };
+  if (!data?.length) return { ok: false, error: t("Зөвхөн цуцалсан захиалгыг устгана", "Only cancelled orders can be deleted") };
   return { ok: true };
 }
 
@@ -215,23 +248,27 @@ export async function orderCounts(): Promise<Record<OrderStatus, number>> {
 export async function editOrderItems(
   orderId: string,
   changes: { id: number; qty: number }[],
+  lang: Lang = "mn",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!isUuid(orderId)) return { ok: false, error: "Олдсонгүй" };
+  const t = makeT(lang);
+  const GENERIC_T = t(GENERIC, GENERIC_EN);
+  const notFound = t("Олдсонгүй", "Not found");
+  if (!isUuid(orderId)) return { ok: false, error: notFound };
   const order = await db().from("teacher_orders").select("status").eq("id", orderId).maybeSingle();
-  if (order.error || !order.data) return { ok: false, error: "Олдсонгүй" };
-  if (order.data.status !== "new") return { ok: false, error: "Зөвхөн төлөөгүй захиалгыг засна" };
+  if (order.error || !order.data) return { ok: false, error: notFound };
+  if (order.data.status !== "new") return { ok: false, error: t("Зөвхөн төлөөгүй захиалгыг засна", "Only unpaid orders can be edited") };
 
   const lines = await db().from("teacher_order_items").select("id, qty").eq("order_id", orderId);
-  if (lines.error) return { ok: false, error: GENERIC };
+  if (lines.error) return { ok: false, error: GENERIC_T };
   const want = new Map<number, number>();
   for (const c of changes ?? []) {
     const qty = Number(c?.qty);
-    if (!Number.isInteger(c?.id) || !Number.isInteger(qty) || qty < 0 || qty > 999) return { ok: false, error: GENERIC };
+    if (!Number.isInteger(c?.id) || !Number.isInteger(qty) || qty < 0 || qty > 999) return { ok: false, error: GENERIC_T };
     want.set(c.id, qty);
   }
   const rows = (lines.data ?? []) as { id: number; qty: number }[];
   if (rows.every((r) => (want.get(r.id) ?? r.qty) === 0)) {
-    return { ok: false, error: "Бүх барааг хасах бол захиалгыг цуцална уу" };
+    return { ok: false, error: t("Бүх барааг хасах бол захиалгыг цуцална уу", "To remove everything, cancel the order instead") };
   }
   for (const r of rows) {
     const qty = want.get(r.id);
@@ -241,13 +278,35 @@ export async function editOrderItems(
         ? db().from("teacher_order_items").delete().eq("id", r.id).eq("order_id", orderId)
         : db().from("teacher_order_items").update({ qty }).eq("id", r.id).eq("order_id", orderId);
     const { error } = await q;
-    if (error) return { ok: false, error: GENERIC };
+    if (error) return { ok: false, error: GENERIC_T };
   }
   const sum = await db().from("teacher_order_items").select("line_total").eq("order_id", orderId);
-  if (sum.error) return { ok: false, error: GENERIC };
+  if (sum.error) return { ok: false, error: GENERIC_T };
   const total = ((sum.data ?? []) as { line_total: number | string }[]).reduce((s, r) => s + Number(r.line_total), 0);
   const upd = await db().from("teacher_orders").update({ total }).eq("id", orderId).eq("status", "new");
-  if (upd.error) return { ok: false, error: GENERIC };
+  if (upd.error) return { ok: false, error: GENERIC_T };
+  return { ok: true };
+}
+
+/**
+ * The admin removes a cancelled order for good; its lines go with it
+ * (on delete cascade). Only cancelled orders: the status check is part of
+ * the delete itself, so a new or paid order can never be removed.
+ */
+export async function deleteCancelledOrder(
+  orderId: string,
+  lang: Lang = "mn",
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const t = makeT(lang);
+  if (!isUuid(orderId)) return { ok: false, error: t("Олдсонгүй", "Not found") };
+  const { data, error } = await db()
+    .from("teacher_orders")
+    .delete()
+    .eq("id", orderId)
+    .eq("status", "cancelled")
+    .select("id");
+  if (error) return { ok: false, error: t(GENERIC, GENERIC_EN) };
+  if (!data?.length) return { ok: false, error: t("Зөвхөн цуцалсан захиалгыг устгана", "Only cancelled orders can be deleted") };
   return { ok: true };
 }
 

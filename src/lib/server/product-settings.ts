@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { db } from "./supabase";
+import { GIFT_SUFFIX, isGiftLine } from "@/lib/gift";
 
 /**
  * The admin's own product settings (sql/04, 05, 07): hide a product, mark it
@@ -133,13 +134,12 @@ export async function saveProductSetting(
   return !error;
 }
 
-const GIFT_MN = " (бэлэг)";
-
 /**
  * Order lines read in English: the product's English name when the admin
- * (or sql/09) gave one; free «бэлэг» lines keep their marker.
+ * (or sql/09) gave one. Free «бэлэг» lines keep their marker, so the page
+ * can still show them as free (see lib/gift.ts).
  */
-export async function localizeItems<I extends { product_id: string | null; name: string }>(
+export async function localizeItems<I extends { product_id: string | null; name: string; unit_price: number }>(
   items: I[],
   lang: "mn" | "en",
 ): Promise<I[]> {
@@ -147,7 +147,7 @@ export async function localizeItems<I extends { product_id: string | null; name:
   const { map } = await getProductSettings();
   return items.map((it) => {
     const en = it.product_id ? map.get(it.product_id)?.nameEn : null;
-    if (!en) return it.name.endsWith(GIFT_MN) ? { ...it, name: it.name.slice(0, -GIFT_MN.length) + " (free)" } : it;
-    return { ...it, name: it.name.endsWith(GIFT_MN) ? `${en} (free)` : en };
+    if (!en) return it;
+    return { ...it, name: isGiftLine(it) ? en + GIFT_SUFFIX : en };
   });
 }

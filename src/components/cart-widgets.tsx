@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronRight, ShoppingCart } from "lucide-react";
 import { CartBadge, useCartBadge } from "@/components/bottom-tabs";
+import { DealNote } from "@/components/deal-note";
 import { useLang } from "@/components/lang";
 import { ProductImage } from "@/components/product-image";
 import { buttonClass } from "@/components/ui/button";
@@ -132,6 +133,7 @@ export function CartPanel() {
                         {packText(packParts(it.qty, it.pack), t)}
                       </div>
                     )}
+                  <DealNote qty={it.qty} deal={it.deal} className="mt-1 text-[11px]" />
                   <div className="mt-1.5 flex items-center gap-2">
                     <Stepper
                       qty={it.qty}
@@ -145,7 +147,7 @@ export function CartPanel() {
                       )}
                     />
                     <span className="ml-auto text-[13px] font-bold tabular-nums">
-                      {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}
+                      {formatMnt(lineTotal(it.qty, it.unit_price))}
                     </span>
                   </div>
                 </div>

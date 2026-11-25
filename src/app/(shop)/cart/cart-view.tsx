@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DealNote } from "@/components/deal-note";
 import { useLang } from "@/components/lang";
 import { EmptyState, Notice, PageTitle } from "@/components/page-header";
 import { ProductImage } from "@/components/product-image";
@@ -22,6 +23,7 @@ import { Button, buttonClass } from "@/components/ui/button";
 import { Stepper } from "@/components/ui/stepper";
 import {
   cartCount,
+  cartGifts,
   cartTotal,
   itemName,
   clearCart,
@@ -32,7 +34,7 @@ import {
 import { BRAND_GRADIENT } from "@/lib/brand";
 import { useCheckoutId } from "@/lib/checkout-id";
 import { formatMnt } from "@/lib/format";
-import { dealLabel, freeQty, lineTotal, type Deal } from "@/lib/sale";
+import { dealLabel, lineTotal, type Deal } from "@/lib/sale";
 import { loginHref } from "@/lib/next-path";
 import { packText } from "@/lib/pack-text";
 import { useMounted } from "@/lib/use-mounted";
@@ -165,6 +167,7 @@ export function CartView({
 
   const total = cartTotal(items);
   const pieces = cartCount(items);
+  const gifts = cartGifts(items);
   const submit = (className: string) =>
     signedIn ? (
       <Button
@@ -256,25 +259,11 @@ export function CartView({
                     )}
                 </div>
                 {it.deal && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] font-semibold">
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <span className="rounded-full bg-danger px-1.5 py-0.5 text-[10.5px] font-bold text-white">
                       {dealLabel(it.deal)}
                     </span>
-                    {freeQty(it.qty, it.deal) > 0 ? (
-                      <span className="text-primary-ink">
-                        {t(
-                          `${freeQty(it.qty, it.deal)} ширхэг үнэгүй`,
-                          `${freeQty(it.qty, it.deal)} free`,
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-ink-3">
-                        {t(
-                          `${it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} нэмбэл ${it.deal.free} үнэгүй`,
-                          `Add ${it.deal.buy + it.deal.free - (it.qty % (it.deal.buy + it.deal.free))} more, get ${it.deal.free} free`,
-                        )}
-                      </span>
-                    )}
+                    <DealNote qty={it.qty} deal={it.deal} next />
                   </div>
                 )}
                 <div className="mt-auto flex items-center gap-3 pt-2">
@@ -309,7 +298,7 @@ export function CartView({
                     </button>
                   )}
                   <span className="ml-auto text-[16px] font-extrabold tracking-tight tabular-nums">
-                    {formatMnt(lineTotal(it.qty, it.unit_price, it.deal))}
+                    {formatMnt(lineTotal(it.qty, it.unit_price))}
                   </span>
                 </div>
               </div>
@@ -341,6 +330,12 @@ export function CartView({
                   )}
                 </span>
               </div>
+              {gifts > 0 && (
+                <div className="flex items-baseline justify-between text-[13px] font-semibold text-primary-ink">
+                  <span>{t("Бэлэг", "Free")}</span>
+                  <span className="tabular-nums">{t(`+${gifts} ширхэг үнэгүй`, `+${gifts} pcs at no cost`)}</span>
+                </div>
+              )}
               <div className="flex items-baseline justify-between">
                 <span className="text-[14px] font-semibold">
                   {t("Нийт", "Total")}

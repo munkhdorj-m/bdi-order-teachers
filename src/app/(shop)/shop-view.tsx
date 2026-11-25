@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Package, Plus, Search, SearchX, ShoppingCart, X } from "lucide-react";
+import { Gift, Package, Plus, Search, SearchX, ShoppingCart, X } from "lucide-react";
 import { CartBar, CartPanel } from "@/components/cart-widgets";
+import { DealNote } from "@/components/deal-note";
 import {
   CatalogNav,
   sectionDomId,
@@ -25,7 +26,7 @@ import {
 import { FOCUS_SEARCH_EVENT } from "@/lib/events";
 import { formatMnt } from "@/lib/format";
 import { unitLabel } from "@/lib/i18n";
-import { dealLabel } from "@/lib/sale";
+import { dealLabel, dealText } from "@/lib/sale";
 import { searchNormalize } from "@/lib/translit";
 import { cn } from "@/lib/utils";
 import type { Category, Product } from "@/lib/server/catalog";
@@ -492,6 +493,12 @@ function ProductCard({
               {t("ш", " pcs")} · {formatMnt(product.price * product.pack)}
             </div>
           )}
+          {product.deal && (
+            <div className="-mt-0.5 flex items-center gap-1 text-[11.5px] font-bold text-danger">
+              <Gift className="size-3.5 shrink-0" strokeWidth={2.2} />
+              {dealText(product.deal, lang)}
+            </div>
+          )}
         </div>
       </Link>
       <div className="px-3 pb-3">
@@ -502,6 +509,7 @@ function ProductCard({
               : t("Хаалттай", "Closed")}
           </div>
         ) : qty > 0 ? (
+          <div className="space-y-1.5">
           <div className="flex gap-1.5">
             <Stepper
               qty={qty}
@@ -527,6 +535,8 @@ function ProductCard({
                 {product.pack}
               </button>
             )}
+          </div>
+          <DealNote qty={qty} deal={product.deal} />
           </div>
         ) : byPack ? (
           <div className="grid grid-cols-2 gap-1.5">

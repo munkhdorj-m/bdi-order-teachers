@@ -238,7 +238,7 @@ export async function getOrderable(): Promise<{
 /** Name and orderable state of some products (for clear error messages). */
 export async function getProductStates(
   ids: string[],
-): Promise<Map<string, { name: string; orderable: boolean; pack: number }>> {
+): Promise<Map<string, { name: string; orderable: boolean; pack: number; deal: Deal | null }>> {
   if (ids.length === 0) return new Map();
   const settings = await getSettings();
   const [res, list, ps] = await Promise.all([
@@ -247,13 +247,14 @@ export async function getProductStates(
     getProductSettings(),
   ]);
   if (res.error) throw new Error(res.error.message);
-  const out = new Map<string, { name: string; orderable: boolean; pack: number }>();
+  const out = new Map<string, { name: string; orderable: boolean; pack: number; deal: Deal | null }>();
   for (const r of (res.data ?? []) as (ProductRow & { active: boolean })[]) {
     const s = ps.map.get(r.id);
     out.set(r.id, {
       name: s?.name || r.name,
       orderable: r.active && !s?.hidden && !soldOutOf(r, s) && shopPrice(r, list, s) != null,
       pack: s?.pack ?? 1,
+      deal: saleOf(s).deal,
     });
   }
   return out;

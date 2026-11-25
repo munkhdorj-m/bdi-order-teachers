@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Gift } from "lucide-react";
 import { ProductImage } from "@/components/product-image";
 import { buttonClass } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -7,11 +7,13 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { BRAND_GRADIENT } from "@/lib/brand";
 import { compactIban, formatIban } from "@/lib/iban";
 import { formatDateTime, formatMnt } from "@/lib/format";
+import { baseName, isGiftLine } from "@/lib/gift";
 import { makeT, type Lang, type T } from "@/lib/i18n";
 import type { Order } from "@/lib/server/orders";
 import type { ShopSettings } from "@/lib/server/settings";
 import { cn } from "@/lib/utils";
 import { CancelOrderButton } from "./cancel-button";
+import { DeleteOrderButton } from "./delete-button";
 import { ReorderButton } from "./reorder-button";
 
 /**
@@ -45,6 +47,7 @@ export function OrderView({
   const actions = (className: string) => (
     <div className={className}>
       {unpaid && <CancelOrderButton orderId={order.id} className="flex-1" />}
+      {order.status === "cancelled" && <DeleteOrderButton orderId={order.id} className="flex-1" />}
       <ReorderButton lines={lines} className="flex-1" />
     </div>
   );
@@ -266,25 +269,38 @@ function Items({ order, t }: { order: Order; t: T }) {
         {order.items.map((it, i) => {
           const photo = (
             <span className="relative block size-12 shrink-0 overflow-hidden rounded-xl bg-muted">
-              <ProductImage src={it.image_url} alt={it.name} sizes="48px" small />
+              <ProductImage src={it.image_url} alt={baseName(it.name)} sizes="48px" small />
             </span>
           );
+          const gift = isGiftLine(it);
           return (
             <li key={`${it.product_id ?? it.name}-${i}`} className="flex items-center gap-3 px-4 py-3 sm:px-5">
               {it.product_id ? (
-                <Link href={`/products/${it.product_id}`} aria-label={it.name}>
+                <Link href={`/products/${it.product_id}`} aria-label={baseName(it.name)}>
                   {photo}
                 </Link>
               ) : (
                 photo
               )}
               <div className="min-w-0 flex-1">
-                <div className="line-clamp-2 text-[14px] font-semibold leading-snug">{it.name}</div>
-                <div className="mt-0.5 text-[12.5px] font-medium text-ink-3 tabular-nums">
-                  {formatMnt(it.unit_price)} × {it.qty}
-                </div>
+                <div className="line-clamp-2 text-[14px] font-semibold leading-snug">{baseName(it.name)}</div>
+                {gift ? (
+                  <div className="mt-1 flex items-center gap-1.5 text-[12.5px] font-semibold tabular-nums">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 font-bold text-primary-ink">
+                      <Gift className="size-3.5" strokeWidth={2.2} />
+                      {t("Бэлэг", "Free")}
+                    </span>
+                    <span className="text-ink-3">× {it.qty}</span>
+                  </div>
+                ) : (
+                  <div className="mt-0.5 text-[12.5px] font-medium text-ink-3 tabular-nums">
+                    {formatMnt(it.unit_price)} × {it.qty}
+                  </div>
+                )}
               </div>
-              <div className="text-[15px] font-bold tabular-nums">{formatMnt(it.line_total)}</div>
+              <div className={gift ? "text-[14px] font-bold text-primary-ink" : "text-[15px] font-bold tabular-nums"}>
+                {gift ? t("Үнэгүй", "Free") : formatMnt(it.line_total)}
+              </div>
             </li>
           );
         })}

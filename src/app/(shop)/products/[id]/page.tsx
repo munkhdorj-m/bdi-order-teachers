@@ -7,7 +7,7 @@ import { CategoryIconTile, categoryVisual } from "@/lib/category-visual";
 import { describe } from "@/lib/describe";
 import { formatMnt } from "@/lib/format";
 import { unitLabel } from "@/lib/i18n";
-import { dealLabel, dealText } from "@/lib/sale";
+import { dealLabel, dealMeaning, dealText } from "@/lib/sale";
 import { dayLabel } from "@/lib/ub-date";
 import { getProduct } from "@/lib/server/catalog";
 import { getLang } from "@/lib/server/lang";
@@ -160,26 +160,18 @@ export default async function ProductPage({
               <span className="shrink-0 rounded-full bg-danger px-2.5 py-1 text-[14px] font-extrabold text-white">
                 {p.sale_percent ? `−${p.sale_percent}%` : dealLabel(p.deal!)}
               </span>
-              <div className="min-w-0 text-[13.5px] font-semibold text-danger">
-                <div>
-                  {[
-                    p.sale_percent
-                      ? t(
-                          `${p.sale_percent}% хямдарсан`,
-                          `${p.sale_percent}% off`,
-                        )
-                      : null,
-                    p.deal ? dealText(p.deal, lang) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+              <div className="min-w-0 text-danger">
+                <div className="text-[14.5px] font-bold">
+                  {p.deal ? dealText(p.deal, lang) : t(`${p.sale_percent}% хямдарсан`, `${p.sale_percent}% off`)}
                 </div>
+                {p.deal && (
+                  <div className="text-[13px] font-semibold text-ink-2">
+                    {dealMeaning(p.deal, lang)} · {t("бэлэг автоматаар нэмэгдэнэ", "free pieces are added automatically")}
+                  </div>
+                )}
                 {p.sale_until && (
                   <div className="text-[12px] font-medium opacity-80">
-                    {t(
-                      `${dayLabel(p.sale_until, lang)} хүртэл`,
-                      `Until ${dayLabel(p.sale_until, lang)}`,
-                    )}
+                    {t(`${dayLabel(p.sale_until, lang)} хүртэл`, `Until ${dayLabel(p.sale_until, lang)}`)}
                   </div>
                 )}
               </div>

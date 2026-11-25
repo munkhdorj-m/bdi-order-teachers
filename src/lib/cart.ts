@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { lineTotal, type Deal } from "@/lib/sale";
+import { giftQty, lineTotal, receivedQty, type Deal } from "@/lib/sale";
 
 /**
  * The cart lives in this phone's localStorage (adapted from BDI's
@@ -18,11 +18,14 @@ export type CartItem = {
   category_name: string | null;
   category_icon: string | null;
   unit_price: number;
-  /** Pieces (by the piece or by the багц, both are fine). */
+  /**
+   * Pieces the teacher pays for (by the piece or by the багц). Free pieces
+   * from a «1+1» deal come on top of this: see giftQty().
+   */
   qty: number;
   /** Pieces in one багц, when the product also comes as a багц (missing / 1 = none). */
   pack?: number;
-  /** «2+1»-style deal: some pieces are free. */
+  /** «1+1» / «2+1» deal: free pieces added on top. */
   deal?: Deal | null;
   /** Price of one piece before «-N%», for showing the saving. */
   was_price?: number | null;
@@ -35,8 +38,34 @@ export function itemName(it: { name: string; name_en?: string | null }, lang: "m
   return lang === "en" && it.name_en ? it.name_en : it.name;
 }
 
-const KEY = "bdi-shop-cart-v1";
+// v2: `qty` is what the teacher pays for; deal pieces come on top.
+// (In v1 a «1+1» line's qty counted the free pieces too.)
+const KEY = "bdi-shop-cart-v2";
+const OLD_KEY = "bdi-shop-cart-v1";
 const EVENT = "bdi-shop-cart-change";
+
+/** Once per device: bring a v1 cart over, taking the free pieces out of qty. */
+function migrate() {
+  try {
+    const old = localStorage.getItem(OLD_KEY);
+    if (old === null) return;
+    if (localStorage.getItem(KEY) === null) {
+      const items = JSON.parse(old) as CartItem[];
+      const next = (Array.isArray(items) ? items : []).map((it) => {
+        const d = it.deal;
+        if (!d || d.buy < 1 || d.free < 1) return it;
+        const freeBefore = Math.floor(it.qty / (d.buy + d.free)) * d.free;
+        return { ...it, qty: Math.max(1, it.qty - freeBefore) };
+      });
+      localStorage.setItem(KEY, JSON.stringify(next));
+    }
+    localStorage.removeItem(OLD_KEY);
+  } catch {
+    /* storage blocked: nothing to bring over */
+  }
+}
+
+if (typeof window !== "undefined") migrate();
 
 function read(): CartItem[] {
   if (typeof window === "undefined") return [];
@@ -57,8 +86,11 @@ function write(items: CartItem[]) {
   window.dispatchEvent(new Event(EVENT));
 }
 
-function clampQty(qty: number): number {
-  return Math.max(0, Math.min(MAX_QTY, Math.floor(qty) || 0));
+/** Paid pieces, so that paid + free stays within one order line's 999. */
+function clampQty(qty: number, deal?: Deal | null): number {
+  let n = Math.max(0, Math.min(MAX_QTY, Math.floor(qty) || 0));
+  while (n > 0 && receivedQty(n, deal) > MAX_QTY) n--;
+  return n;
 }
 
 /** «1 багц + 2 ш» parts of a quantity, for showing it. */
@@ -69,7 +101,7 @@ export function packParts(qty: number, pack = 1): { packs: number; rest: number 
 
 /** Set a product's quantity: adds it when new, removes it at 0. */
 export function setQty(item: Omit<CartItem, "qty">, qty: number) {
-  const n = clampQty(qty);
+  const n = clampQty(qty, item.deal);
   const items = read();
   const i = items.findIndex((x) => x.product_id === item.product_id);
   if (n === 0) {
@@ -113,8 +145,8 @@ export function syncCartPrices(
       continue;
     }
     const pack = packs[it.product_id] ?? it.pack ?? 1;
-    const qty = clampQty(it.qty);
     const deal = deals[it.product_id] ?? null;
+    const qty = clampQty(it.qty, deal);
     if ((it.pack ?? 1) !== pack || qty !== it.qty || JSON.stringify(it.deal ?? null) !== JSON.stringify(deal)) repacked = true;
     if (Number(price) !== Number(it.unit_price)) repriced++;
     next.push({ ...it, unit_price: Number(price), pack, qty, deal });
@@ -123,12 +155,18 @@ export function syncCartPrices(
   return { repriced, removed };
 }
 
+/** Pieces the teacher will receive, free ones included. */
 export function cartCount(items: CartItem[]): number {
-  return items.reduce((s, i) => s + i.qty, 0);
+  return items.reduce((s, i) => s + receivedQty(i.qty, i.deal), 0);
+}
+
+/** Free pieces in the whole cart. */
+export function cartGifts(items: CartItem[]): number {
+  return items.reduce((s, i) => s + giftQty(i.qty, i.deal), 0);
 }
 
 export function cartTotal(items: CartItem[]): number {
-  return items.reduce((s, i) => s + lineTotal(i.qty, i.unit_price, i.deal), 0);
+  return items.reduce((s, i) => s + lineTotal(i.qty, i.unit_price), 0);
 }
 
 // ---- useCart: useSyncExternalStore over localStorage ------------------

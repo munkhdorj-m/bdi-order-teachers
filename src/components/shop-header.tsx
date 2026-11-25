@@ -53,7 +53,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
           </span>
         </Link>
 
-        <nav aria-label={t("Үндсэн цэс", "Main menu")} className="ml-4 hidden items-center gap-1 md:flex lg:ml-8">
+        <nav aria-label={t("Үндсэн цэс", "Main menu")} className="ml-2 hidden items-center gap-0.5 md:flex lg:ml-8 lg:gap-1">
           {TABS.filter((tab) => tab.href !== "/me").map(({ href, label, en, Icon, match }) => {
             const active = match(path);
             return (
@@ -62,11 +62,11 @@ export function ShopHeader({ user }: { user: MenuUser }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-10 items-center gap-2 rounded-full px-4 text-[14px] font-semibold transition-colors",
+                  "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] font-semibold transition-colors lg:px-4",
                   active ? "bg-ink text-white" : "text-ink-2 hover:bg-muted hover:text-ink",
                 )}
               >
-                <Icon className="size-[18px]" strokeWidth={active ? 2.3 : 2} />
+                <Icon className="hidden size-[18px] lg:block" strokeWidth={active ? 2.3 : 2} />
                 {t(label, en ?? label)}
                 {href === "/cart" && <CartBadge {...badge} className="ml-0.5 ring-0" />}
               </Link>
@@ -75,7 +75,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <LangSwitch />
+          <LangSwitch compact />
           {path === "/" && (
             <button
               type="button"
@@ -110,7 +110,7 @@ export function ShopHeader({ user }: { user: MenuUser }) {
           ) : (
             <Link
               href={loginHref(path)}
-              className="hidden h-10 items-center gap-2 rounded-full bg-ink px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b30] md:flex"
+              className="hidden h-10 shrink-0 items-center gap-2 rounded-full bg-ink px-3.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#2b2b30] md:flex lg:px-4"
             >
               <LogIn className="size-4" />
               {t("Нэвтрэх", "Sign in")}

@@ -24,7 +24,16 @@ function saveLang(next: Lang) {
 }
 
 /** МН | EN switch. Saves the choice and re-renders the page in it. */
-export function LangSwitch({ className, tone = "light" }: { className?: string; tone?: "light" | "dark" }) {
+export function LangSwitch({
+  className,
+  tone = "light",
+  compact = false,
+}: {
+  className?: string;
+  tone?: "light" | "dark";
+  /** Hide the 文A icon on tablets, where the shop header is tight. */
+  compact?: boolean;
+}) {
   const { lang } = useLang();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -46,7 +55,7 @@ export function LangSwitch({ className, tone = "light" }: { className?: string; 
         className,
       )}
     >
-      <Languages className="mx-1 size-4 text-primary max-[360px]:hidden" strokeWidth={2.2} aria-hidden />
+      <Languages className={cn("mx-1 size-4 text-primary", compact ? "max-[360px]:hidden md:hidden lg:block" : "max-[360px]:hidden")} strokeWidth={2.2} aria-hidden />
       {(
         [
           ["mn", "МН"],
